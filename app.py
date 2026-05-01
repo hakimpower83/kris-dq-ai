@@ -724,7 +724,7 @@ Annual report text:
                 st.markdown(
                     """
                     <div class="section-heading">
-                    KRIS-DQ Score Summary
+                    Key Risk Discloaure Quality Summary
                     </div>
                     """,
                     unsafe_allow_html=True
