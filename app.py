@@ -724,7 +724,7 @@ Annual report text:
                 st.markdown(
                     """
                     <div class="section-heading">
-                    Key Risk Discloaure Quality Summary
+                    Key Risk Disclosure Quality Summary
                     </div>
                     """,
                     unsafe_allow_html=True
