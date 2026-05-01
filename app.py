@@ -46,33 +46,90 @@ client = OpenAI(api_key=api_key) if api_key else None
 # APP SETTINGS
 # ============================================================
 
-PROMPT_VERSION = "kris-dq-consistency-v1"
+PROMPT_VERSION = "kris-dq-published-framework-v3"
+MAX_TEXT_CHARS = 60000
 
 
 # ============================================================
-# KRIS-DQ CATEGORIES
+# KRIS-DQ PUBLISHED RISK CATEGORIES AND DEFINITIONS
 # ============================================================
 
-KRIS_CATEGORIES = [
-    "Business Resilience",
-    "Liquidity and Cash Flow Management",
-    "Business Continuity and Crisis Response",
-    "Cybersecurity and Data Privacy",
-    "Climate Change",
-    "ESG Reporting",
-    "Digital Disruption and Emerging Technologies",
-    "Data Management and Analytics",
-    "Organisational Culture and Behaviour",
-    "Talent Management and Human Capital",
-    "Regulatory and Compliance Change",
-    "Changes in the Tax Landscape",
-    "Geopolitical and Macroeconomic Uncertainty",
-    "Supply Chain Disruption",
-    "Third-Party and Outsourcing Dependency",
-    "Fraud, Misconduct and Integrity Risk",
-    "Mergers and Acquisitions",
-    "Health, Safety and Operational Incidents"
+KRIS_RISK_DEFINITIONS = [
+    {
+        "category": "Business Resilience",
+        "definition": "The risk of failing to adapt to disruptions, maintain critical operations, and recover effectively from crises such as pandemics, economic shocks, natural disasters, or geopolitical events. Includes governance integration and long-term preparedness."
+    },
+    {
+        "category": "Talent Pipeline and Retention",
+        "definition": "The risk of not ensuring the availability of skilled employees through recruitment, retention, and development strategies. Includes challenges from hybrid work, succession planning, and aligning workforce needs with business goals."
+    },
+    {
+        "category": "Fraud Risk",
+        "definition": "The risk of unethical or fraudulent activities due to weak controls, governance lapses, or external threats. Includes heightened risks during economic stress and evaluating fraud detection systems."
+    },
+    {
+        "category": "Organizational Culture and Behavior",
+        "definition": "The risk of poor values or ethical standards impacting decision-making, compliance, and control effectiveness. Includes challenges in hybrid work environments and use of soft control audits."
+    },
+    {
+        "category": "Climate Change",
+        "definition": "The risk of environmental impacts and sustainability challenges disrupting operations or harming reputations. Includes preparedness for climate-related risks and ESG integration."
+    },
+    {
+        "category": "Third-Party Relationships and Supply Chain",
+        "definition": "The risk of disruptions or failures in vendor relationships and supply chains. Includes vendor insolvency, geopolitical impacts, ESG considerations, and governance weaknesses."
+    },
+    {
+        "category": "Cybersecurity and Data Privacy",
+        "definition": "The risk of data breaches, cyberattacks, and privacy violations, particularly in remote or hybrid environments. Includes third-party risks and adherence to cybersecurity frameworks."
+    },
+    {
+        "category": "Regulatory-Driven Risk",
+        "definition": "The risk of non-compliance with evolving regulations at various levels, potentially leading to fines or operational disruptions. Includes proactive compliance and governance, risk, and compliance system integration."
+    },
+    {
+        "category": "Data Management and Analytics",
+        "definition": "The risk of poor data management or analysis, affecting data integrity, privacy, and decision-making. Includes ethical use of data and embedding analytics in audit or governance processes."
+    },
+    {
+        "category": "Digital Disruption and Emerging Technologies",
+        "definition": "The risk associated with adopting technologies such as artificial intelligence, robotics, automation, and digital systems. Includes governance, integration, cybersecurity risks, and long-term monitoring frameworks."
+    },
+    {
+        "category": "Changes in Tax Landscape",
+        "definition": "The risk of failing to adapt to tax changes, leading to penalties, inefficiencies, or compliance weaknesses. Includes building robust tax compliance frameworks."
+    },
+    {
+        "category": "Evolving Compliance and Regulation",
+        "definition": "The risk of inadequate systems to manage regulatory complexity. Includes legal, operational, and reputational risks, and the use of automation in compliance monitoring."
+    },
+    {
+        "category": "ESG Reporting",
+        "definition": "The risk of failing to meet ESG disclosure expectations or regulations. Includes alignment with international standards and maintaining ESG governance and metrics."
+    },
+    {
+        "category": "Liquidity and Cash Flow Management",
+        "definition": "The risk of poor cash flow or funding management, particularly during economic stress. Includes use of analytics to optimise cash and working capital."
+    },
+    {
+        "category": "Economic and Geopolitical Uncertainty",
+        "definition": "The risk of macroeconomic or geopolitical instability affecting business operations. Includes inflation, sanctions, trade tension, economic uncertainty, and capital planning implications."
+    },
+    {
+        "category": "Mergers and Acquisitions",
+        "definition": "The risk of governance, integration, or due diligence failures during corporate transactions. Includes synergy realisation and cultural integration challenges."
+    },
+    {
+        "category": "Business Continuity and Crisis Response",
+        "definition": "The risk of inadequate preparation or response to crises such as cyberattacks, pandemics, operational breakdowns, or disasters. Includes scenario planning, crisis simulation, and governance oversight."
+    },
+    {
+        "category": "Ethical Concerns and Soft Controls",
+        "definition": "The risk of weak ethical oversight affecting behaviour and decisions. Includes use of surveys, audits, reporting channels, governance mechanisms, or other tools to evaluate cultural alignment and governance gaps."
+    }
 ]
+
+KRIS_CATEGORIES = [item["category"] for item in KRIS_RISK_DEFINITIONS]
 
 
 # ============================================================
@@ -86,6 +143,16 @@ def get_base64_image(image_path):
 
 def get_file_hash(file_bytes):
     return hashlib.sha256(file_bytes).hexdigest()
+
+
+def normalise_bool(value):
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, str):
+        return value.strip().lower() in ["true", "yes", "1"]
+
+    return bool(value)
 
 
 def fix_categories(api_categories):
@@ -108,18 +175,37 @@ def fix_categories(api_categories):
 
             score = max(0, min(score, 4))
 
+            evidence_found = normalise_bool(item.get("evidence_found", False))
+            evidence_summary = item.get("evidence_summary", "").strip()
             summary = item.get("summary", "").strip()
-            if not summary:
+
+            if not evidence_found or score == 0:
+                evidence_found = False
+                score = 0
+                evidence_summary = "No clear evidence found."
                 summary = "No relevant disclosure identified."
+
+            if score > 0 and not evidence_summary:
+                evidence_found = False
+                score = 0
+                evidence_summary = "No clear evidence found."
+                summary = "No relevant disclosure identified."
+
+            if not summary:
+                summary = "No relevant disclosure identified." if score == 0 else evidence_summary
 
             fixed_results.append({
                 "risk_category": category,
+                "evidence_found": evidence_found,
+                "evidence_summary": evidence_summary,
                 "score": score,
                 "summary": summary
             })
         else:
             fixed_results.append({
                 "risk_category": category,
+                "evidence_found": False,
+                "evidence_summary": "No clear evidence found.",
                 "score": 0,
                 "summary": "No relevant disclosure identified."
             })
@@ -130,7 +216,7 @@ def fix_categories(api_categories):
 def score_label(score):
     labels = {
         0: "No disclosure",
-        1: "Generic",
+        1: "Minimal",
         2: "Descriptive",
         3: "Mitigation",
         4: "Quantitative"
@@ -143,6 +229,9 @@ def convert_df_to_excel(
     company_name,
     uploaded_file_name,
     pages_reviewed,
+    total_extracted_chars,
+    characters_reviewed,
+    text_was_truncated,
     total_score,
     maximum_score,
     normalized_score,
@@ -155,25 +244,38 @@ def convert_df_to_excel(
             "Company Name",
             "Uploaded File",
             "Pages Reviewed",
+            "Total Extracted Characters",
+            "Characters Reviewed",
+            "Text Truncated",
             "Total KRIS-DQ Score",
             "Maximum Score",
             "Normalized Score",
-            "Percentage Score"
+            "Percentage Score",
+            "Prompt Version",
+            "Human Review Note"
         ],
         "Value": [
             company_name,
             uploaded_file_name,
             pages_reviewed,
+            total_extracted_chars,
+            characters_reviewed,
+            "Yes" if text_was_truncated else "No",
             total_score,
             maximum_score,
             normalized_score,
-            f"{percentage_score}%"
+            f"{percentage_score}%",
+            PROMPT_VERSION,
+            "KRIS-DQ.ai provides AI-assisted preliminary scoring. Final scores should be reviewed by a trained human coder, especially for academic research, regulatory use, or paid professional reports."
         ]
     })
 
+    excel_df = df.copy()
+    excel_df["Review Note"] = ""
+
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         summary_df.to_excel(writer, index=False, sheet_name="Score Summary")
-        df.to_excel(writer, index=False, sheet_name="Category Results")
+        excel_df.to_excel(writer, index=False, sheet_name="Category Results")
 
     return output.getvalue()
 
@@ -186,16 +288,22 @@ def build_results_table(df):
 
         no_value = html.escape(str(row["No."]))
         category_value = html.escape(str(row["Risk Category"]))
+        evidence_value = html.escape(str(row["Evidence Found"]))
         score_value = html.escape(str(row["KRIS-DQ Score"]))
         meaning_value = html.escape(str(row["Score Meaning"]))
+        evidence_summary_value = html.escape(str(row["Evidence Summary"]))
         summary_value = html.escape(str(row["Summary of Disclosure"]))
+
+        evidence_class = "evidence-yes" if evidence_value == "Yes" else "evidence-no"
 
         table_rows += f"""
         <tr>
             <td class="col-no">{no_value}</td>
             <td class="col-category">{category_value}</td>
+            <td class="col-evidence {evidence_class}">{evidence_value}</td>
             <td class="col-score score-{score}">{score_value}</td>
             <td class="col-meaning">{meaning_value}</td>
+            <td class="col-evidence-summary">{evidence_summary_value}</td>
             <td class="col-summary">{summary_value}</td>
         </tr>
         """
@@ -222,10 +330,10 @@ def build_results_table(df):
 
             table {{
                 width: 100%;
-                min-width: 950px;
+                min-width: 1450px;
                 border-collapse: collapse;
                 table-layout: fixed;
-                font-size: 15px;
+                font-size: 14px;
                 background: rgba(17, 24, 39, 0.35);
                 border-radius: 10px;
                 overflow: hidden;
@@ -259,6 +367,12 @@ def build_results_table(df):
                 width: 230px;
             }}
 
+            .col-evidence {{
+                width: 75px;
+                text-align: center;
+                font-weight: 800;
+            }}
+
             .col-score {{
                 width: 70px;
                 text-align: center;
@@ -266,11 +380,25 @@ def build_results_table(df):
             }}
 
             .col-meaning {{
-                width: 120px;
+                width: 110px;
+            }}
+
+            .col-evidence-summary {{
+                width: 410px;
             }}
 
             .col-summary {{
-                width: 480px;
+                width: 510px;
+            }}
+
+            .evidence-yes {{
+                background-color: #14532d;
+                color: white;
+            }}
+
+            .evidence-no {{
+                background-color: #374151;
+                color: white;
             }}
 
             .score-0 {{
@@ -301,7 +429,7 @@ def build_results_table(df):
             @media (max-width: 768px) {{
                 table {{
                     font-size: 13px;
-                    min-width: 900px;
+                    min-width: 1350px;
                 }}
 
                 th, td {{
@@ -313,7 +441,11 @@ def build_results_table(df):
                 }}
 
                 .col-category {{
-                    width: 150px;
+                    width: 180px;
+                }}
+
+                .col-evidence {{
+                    width: 65px;
                 }}
 
                 .col-score {{
@@ -324,8 +456,12 @@ def build_results_table(df):
                     width: 90px;
                 }}
 
+                .col-evidence-summary {{
+                    width: 390px;
+                }}
+
                 .col-summary {{
-                    width: 450px;
+                    width: 470px;
                 }}
             }}
         </style>
@@ -337,8 +473,10 @@ def build_results_table(df):
                     <tr>
                         <th class="col-no">No.</th>
                         <th class="col-category">Risk Category</th>
+                        <th class="col-evidence">Evidence</th>
                         <th class="col-score">Score</th>
                         <th class="col-meaning">Meaning</th>
+                        <th class="col-evidence-summary">Evidence Summary</th>
                         <th class="col-summary">Summary of Disclosure</th>
                     </tr>
                 </thead>
@@ -506,6 +644,30 @@ st.markdown(
         line-height: 1.4;
     }
 
+    .review-warning {
+        padding: 14px 18px;
+        border-radius: 12px;
+        background: rgba(146, 64, 14, 0.22);
+        border: 1px solid rgba(251, 191, 36, 0.35);
+        color: #fde68a;
+        font-size: 15px;
+        line-height: 1.45;
+        margin-top: 8px;
+        margin-bottom: 18px;
+    }
+
+    .human-review-note {
+        padding: 14px 18px;
+        border-radius: 12px;
+        background: rgba(30, 58, 138, 0.22);
+        border: 1px solid rgba(96, 165, 250, 0.35);
+        color: #bfdbfe;
+        font-size: 15px;
+        line-height: 1.45;
+        margin-top: 8px;
+        margin-bottom: 18px;
+    }
+
     @media (max-width: 768px) {
         .block-container {
             padding-top: 1.5rem;
@@ -573,7 +735,7 @@ else:
 st.markdown(
     """
     <div class="app-description">
-    KRIS-DQ.ai evaluates annual report disclosures using the KRIS-DQ framework, transforming unstructured narratives into structured, comparable risk disclosure scores. Built on the KRIS-DQ framework developed through academic research, it generates category-level insights, concise summaries, and an overall disclosure quality score to support research, governance, and decision-making.
+    KRIS-DQ.ai evaluates annual report disclosures using the published KRIS-DQ Index framework, transforming unstructured narratives into structured, comparable risk disclosure scores. Built on the KRIS-DQ framework developed through academic research, it generates category-level evidence, concise summaries, and an overall disclosure quality score to support research, governance, and decision-making.
     </div>
     """,
     unsafe_allow_html=True
@@ -650,15 +812,21 @@ if uploaded_file is not None:
             st.stop()
 
         with st.spinner("Generating KRIS-DQ analysis..."):
-            text_sample = ""
+            full_text = ""
 
             for i in range(len(pdf)):
-                text_sample += pdf[i].get_text() + "\n\n"
+                full_text += pdf[i].get_text() + "\n\n"
 
-            text_sample = text_sample[:30000]
+            total_extracted_chars = len(full_text)
+            text_was_truncated = total_extracted_chars > MAX_TEXT_CHARS
+            text_sample = full_text[:MAX_TEXT_CHARS]
+            characters_reviewed = len(text_sample)
 
-            categories_text = "\n".join(
-                [f"{i + 1}. {cat}" for i, cat in enumerate(KRIS_CATEGORIES)]
+            risk_definitions_text = "\n\n".join(
+                [
+                    f"{i + 1}. {item['category']}\nDefinition: {item['definition']}"
+                    for i, item in enumerate(KRIS_RISK_DEFINITIONS)
+                ]
             )
 
             schema = {
@@ -680,6 +848,12 @@ if uploaded_file is not None:
                                     "type": "string",
                                     "enum": KRIS_CATEGORIES
                                 },
+                                "evidence_found": {
+                                    "type": "boolean"
+                                },
+                                "evidence_summary": {
+                                    "type": "string"
+                                },
                                 "score": {
                                     "type": "integer",
                                     "enum": [0, 1, 2, 3, 4]
@@ -688,7 +862,13 @@ if uploaded_file is not None:
                                     "type": "string"
                                 }
                             },
-                            "required": ["risk_category", "score", "summary"]
+                            "required": [
+                                "risk_category",
+                                "evidence_found",
+                                "evidence_summary",
+                                "score",
+                                "summary"
+                            ]
                         }
                     }
                 },
@@ -696,78 +876,98 @@ if uploaded_file is not None:
             }
 
             prompt = f"""
-You are an expert analyst in corporate risk disclosure, corporate governance, annual report analysis, and KRIS-DQ scoring.
+You are an expert analyst in corporate risk disclosure, corporate governance, annual report analysis, content analysis, and KRIS-DQ Index scoring.
 
-Analyze the following annual report text using the KRIS-DQ framework.
+Analyze the following annual report text using the published KRIS-DQ Index framework developed for Malaysian public-listed companies.
 
 Your task is to assess the presence and quality of risk-related disclosures across the 18 fixed KRIS-DQ key risk areas.
 
-Risk in the KRIS-DQ context refers to any potential event, condition, issue, or trend, whether internal or external, that could adversely affect a company's strategy, operations, financial performance, reporting quality, compliance position, sustainability performance, reputation, or long-term value creation.
+Use the KRIS-DQ Index exactly as defined below. Do not use alternative risk categories, alternative labels, alternative spellings, or broader generic ESG or risk taxonomies.
 
-Use a conservative medium-moderate scoring approach.
+KRIS-DQ definition of risk disclosure:
+Risk disclosure refers to the communication of threats, uncertainties, and exposures that may negatively impact a company's financial position, operations, or sustainability, together with the measures taken to mitigate, control, monitor, or manage these risks.
 
-Important consistency rule:
-Apply the same scoring standard to every category. If the evidence is unclear, weak, indirect, or only implied, choose the lower score. Do not give the benefit of the doubt.
+Scoring philosophy:
+Use a conservative medium-moderate scoring approach. Risk disclosure must be clearly stated in the annual report text before it can be scored. Do not infer, assume, or over-interpret vague language. If the evidence is unclear, indirect, weak, or only implied, choose the lower score.
 
+Company identification:
 First, identify the main reporting company or group name from the annual report text.
-
 Return the official reporting company or group name as "company_name".
-
 If the company name cannot be identified, return "Not identified".
+Do not use the name of subsidiaries, auditors, banks, customers, suppliers, projects, hotels, directors, shareholders, or unrelated companies as the company_name.
 
-Do not use the name of subsidiaries, auditors, banks, customers, projects, hotels, suppliers, directors, shareholders, or unrelated companies as the company_name.
-
-You MUST evaluate all 18 KRIS-DQ categories below:
-{categories_text}
+KRIS-DQ key risk areas and definitions:
+{risk_definitions_text}
 
 Scoring guide:
 0 = No disclosure
-1 = Generic or minimal mention
-2 = Descriptive explanation of risk or impact
-3 = Includes mitigation strategies, governance actions, controls, response plans, monitoring activities, or management actions
-4 = Includes quantitative, measurable, or specific numerical information that improves the usefulness of the risk disclosure
+1 = Minimal coverage, vague or generic references to risk with little detail
+2 = Descriptive disclosure, where the impact of the risk is evident
+3 = Explanation of mitigation strategies, plans, controls, or strategies to mitigate or eliminate the risk
+4 = Inclusion of quantitative information, either in monetary terms or actual physical quantities
 
-Apply this exact scoring decision process for every category:
+Apply this exact evidence-first scoring process for every category:
 
-Step 1: Check whether the risk category is explicitly disclosed.
-- If the risk category is not clearly and explicitly identifiable, assign score 0.
-- Do not infer disclosure from broad business descriptions, general strategy statements, or vague sustainability language.
+Step 1: Identify evidence.
+For each risk category, first look for explicit annual report evidence that matches the risk definition.
+Evidence may appear in sections such as MD&A, SORMIC, CG Report, Sustainability Statement, AC Report, RMC Report, Directors' Report, Notes to the Financial Statements, or any risk-related section.
 
-Step 2: If the risk is mentioned but only briefly, generally, or in boilerplate language, assign score 1.
-- Score 1 applies when the report names or lightly refers to the risk but provides little company-specific explanation.
+Step 2: Determine availability.
+If no clear evidence is found, set evidence_found to false, assign score 0, write evidence_summary as "No clear evidence found.", and write summary as "No relevant disclosure identified."
 
-Step 3: If the report explains the risk, exposure, consequence, or impact on the company, assign score 2.
-- Score 2 requires a clear description of how the risk may affect the company, its operations, performance, compliance, reporting, reputation, or stakeholders.
+Step 3: Apply score 1.
+Assign score 1 only when the risk is mentioned briefly, generally, symbolically, or in boilerplate form, with little or no company-specific explanation.
 
-Step 4: If the report explains how the company manages, mitigates, monitors, governs, controls, or responds to the risk, assign score 3.
-- Score 3 requires a management response, mitigation strategy, governance action, monitoring process, control, policy, plan, or response mechanism.
+Step 4: Apply score 2.
+Assign score 2 when the disclosure explains the risk, exposure, consequence, or impact on the company's business, operations, financial performance, compliance position, sustainability, reputation, or stakeholders.
 
-Step 5: Assign score 4 only when the disclosure includes quantitative, measurable, or specific numerical information directly connected to the risk category.
-- Quantitative information may include monetary values, percentages, ratios, counts, volumes, timelines, targets, incident numbers, training hours, emission figures, liquidity ratios, or other measurable indicators.
-- Do not assign score 4 merely because the annual report contains general financial numbers.
-- The number must directly improve the quality of the risk disclosure for that specific category.
+Step 5: Apply score 3.
+Assign score 3 when the disclosure explains plans, controls, policies, governance actions, monitoring activities, response mechanisms, or strategies used to manage, mitigate, reduce, control, or eliminate the risk.
+Generic statements about having a board, committee, policy, internal control system, risk management framework, or governance structure should not automatically receive score 3 unless they are clearly linked to the specific KRIS-DQ risk category being assessed.
 
-Tie-breaking rules:
-- If the disclosure sits between two scores, choose the lower score.
-- If the same sentence could support multiple categories, use it only where it is most relevant.
-- Do not repeat the same generic summary across several categories.
-- Do not reward repeated headings or repeated boilerplate statements.
-- Do not score based on the importance or severity of the risk. Score only the quality of disclosure.
+Step 6: Apply score 4.
+Assign score 4 only when the disclosure includes quantitative information directly related to the risk category.
+Quantitative information may include monetary amounts, percentages, ratios, physical quantities, counts, volumes, timelines, targets, incident numbers, training hours, emission data, liquidity figures, compliance statistics, or other measurable indicators.
+Do not assign score 4 merely because the annual report contains general financial numbers.
+General revenue, profit, assets, liabilities, employee count, ESG performance numbers, or operational statistics should not qualify for score 4 unless they directly explain the risk exposure, impact, mitigation, target, trend, or outcome for the specific risk category.
+The quantitative information must directly improve the quality of the specific risk disclosure.
+
+Consistency and tie-breaking rules:
+- Apply the same scoring standard to all 18 categories.
+- If a disclosure sits between two scores, choose the lower score.
+- If a disclosure is vague, implied, indirect, or not clearly linked to the risk category, choose the lower score.
+- Do not score based on the severity or importance of the risk. Score only the quality of disclosure.
+- Do not reward repeated headings, contents pages, repeated phrases, or generic claims.
+- Do not repeat the same evidence across many categories unless the annual report clearly links that evidence to multiple distinct risks.
+- If one disclosure could fit several categories, assign it to the most relevant category and avoid double counting.
 - Do not invent information not found in the annual report text.
+- Do not use external knowledge about the company.
+- Do not assume that a company faces a risk merely because of its industry.
+- Do not treat normal business descriptions as risk disclosure unless the negative exposure, uncertainty, threat, or mitigation is clearly stated.
+- Do not treat generic sustainability, governance, or financial statements as risk disclosure unless they are clearly linked to one of the 18 KRIS-DQ risk areas.
+
+Evidence summary requirement:
+For each category, evidence_summary must briefly explain the actual evidence found in the report that supports the score.
+If possible, mention the type of section where the evidence appears, but do not guess the section if it is not clear.
+Do not provide long quotations.
+If no evidence is found, write exactly "No clear evidence found."
 
 Summary requirement:
 For each category, provide a concise but useful summary that:
-- identifies the risk discussed;
+- identifies the risk disclosed;
 - explains the disclosed impact, exposure, or relevance to the company;
 - mentions mitigation, response, governance action, control, monitoring activity, or management strategy where available;
 - includes quantitative information only where disclosed;
 - supports the score assigned;
 - uses "No relevant disclosure identified." if the category is not discussed.
 
-Before finalising the JSON, internally check that:
-- all 18 categories are included exactly once;
+Before finalising the output, internally check that:
+- all 18 KRIS-DQ categories are included exactly once;
+- each category name is exactly the same as the KRIS-DQ category list above;
 - each score follows the 0 to 4 criteria;
-- score 4 is only used where specific quantitative information is present;
+- evidence_summary supports the assigned score;
+- score 3 is not assigned based only on generic governance or internal control statements;
+- score 4 is only used where specific quantitative information is present and directly linked to the specific risk category;
 - unclear cases are scored conservatively;
 - the total scoring approach is consistent across all categories.
 
@@ -778,12 +978,13 @@ Important output rules:
 - Do not include comments before or after the JSON.
 - Return exactly one JSON object.
 - Return the company_name and exactly 18 category objects.
-- Use each category exactly once.
+- Use each KRIS-DQ category exactly once.
 - Use the exact category names provided.
 - Do not combine categories.
 - Do not rename categories.
 - Do not create new categories.
 - Score must be an integer from 0 to 4.
+- evidence_found must be true or false.
 
 The JSON must follow this exact structure:
 
@@ -791,9 +992,11 @@ The JSON must follow this exact structure:
   "company_name": "Company name here",
   "categories": [
     {{
-      "risk_category": "Exact KRIS-DQ category name",
-      "score": 0,
-      "summary": "Brief summary here."
+      "risk_category": "Business Resilience",
+      "evidence_found": true,
+      "evidence_summary": "Brief evidence from the report that supports the score.",
+      "score": 3,
+      "summary": "Brief user-facing summary here."
     }}
   ]
 }}
@@ -806,7 +1009,7 @@ Annual report text:
                 if "analysis_cache" not in st.session_state:
                     st.session_state["analysis_cache"] = {}
 
-                cache_key = f"{PROMPT_VERSION}_{file_hash}"
+                cache_key = f"{PROMPT_VERSION}_{file_hash}_{characters_reviewed}"
 
                 if cache_key in st.session_state["analysis_cache"]:
                     data = st.session_state["analysis_cache"][cache_key]
@@ -843,6 +1046,25 @@ Annual report text:
                         "Consistency note: this result was reused from the same uploaded PDF during the current session."
                     )
 
+                if text_was_truncated:
+                    st.markdown(
+                        f"""
+                        <div class="review-warning">
+                        Text limit notice: The uploaded PDF produced {total_extracted_chars:,} extracted characters, but only the first {characters_reviewed:,} characters were reviewed in this analysis. For better accuracy, upload selected risk-related sections such as SORMIC, MD&A, Sustainability Statement, CG Report, AC Report, or RMC Report.
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                st.markdown(
+                    """
+                    <div class="human-review-note">
+                    KRIS-DQ.ai provides AI-assisted preliminary scoring. Final scores should be reviewed by a trained human coder, especially for academic research, regulatory use, or paid professional reports.
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
                 st.markdown(
                     """
                     <div class="section-heading">
@@ -852,7 +1074,7 @@ Annual report text:
                     unsafe_allow_html=True
                 )
 
-                context_col1, context_col2, context_col3 = st.columns(3)
+                context_col1, context_col2, context_col3, context_col4 = st.columns(4)
 
                 with context_col1:
                     st.markdown(
@@ -882,6 +1104,17 @@ Annual report text:
                         <div class="context-card">
                             <div class="context-label">Pages Reviewed</div>
                             <div class="context-value">{len(pdf)}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                with context_col4:
+                    st.markdown(
+                        f"""
+                        <div class="context-card">
+                            <div class="context-label">Characters Reviewed</div>
+                            <div class="context-value">{characters_reviewed:,}</div>
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -940,7 +1173,7 @@ Annual report text:
                         <div class="result-card">
                             <div class="result-label">Categories Checked</div>
                             <div class="result-value">18 / 18</div>
-                            <div class="result-note">All KRIS-DQ categories reviewed</div>
+                            <div class="result-note">Published KRIS-DQ categories reviewed</div>
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -953,17 +1186,30 @@ Annual report text:
                 df = pd.DataFrame(fixed_categories)
 
                 df.insert(0, "No.", range(1, len(df) + 1))
+                df["evidence_found_display"] = df["evidence_found"].apply(
+                    lambda x: "Yes" if x else "No"
+                )
                 df["score_meaning"] = df["score"].apply(score_label)
 
                 df = df[
-                    ["No.", "risk_category", "score", "score_meaning", "summary"]
+                    [
+                        "No.",
+                        "risk_category",
+                        "evidence_found_display",
+                        "score",
+                        "score_meaning",
+                        "evidence_summary",
+                        "summary"
+                    ]
                 ]
 
                 df.columns = [
                     "No.",
                     "Risk Category",
+                    "Evidence Found",
                     "KRIS-DQ Score",
                     "Score Meaning",
+                    "Evidence Summary",
                     "Summary of Disclosure"
                 ]
 
@@ -980,6 +1226,9 @@ Annual report text:
                     company_name,
                     uploaded_file.name,
                     len(pdf),
+                    total_extracted_chars,
+                    characters_reviewed,
+                    text_was_truncated,
                     total_score,
                     maximum_score,
                     normalized_score,
@@ -995,8 +1244,8 @@ Annual report text:
                 )
 
                 st.caption(
-                    "Validation check: 18 out of 18 KRIS-DQ categories displayed. "
-                    "Scores are AI-assisted estimates and should be reviewed by the user."
+                    "Validation check: 18 out of 18 published KRIS-DQ categories displayed. "
+                    "Scores are AI-assisted preliminary estimates and should be reviewed by the user."
                 )
 
                 st.markdown("---")
@@ -1008,10 +1257,10 @@ Annual report text:
                     | Score | Interpretation |
                     |---|---|
                     | 0 | No disclosure |
-                    | 1 | Generic or minimal mention |
-                    | 2 | Descriptive explanation of risk or impact |
-                    | 3 | Includes mitigation strategies or management actions |
-                    | 4 | Includes quantitative or measurable information |
+                    | 1 | Minimal coverage, vague or generic references to risk with little detail |
+                    | 2 | Descriptive disclosure, where the impact of the risk is evident |
+                    | 3 | Explanation of mitigation strategies, plans, controls, or strategies to mitigate or eliminate the risk |
+                    | 4 | Inclusion of quantitative information, either in monetary terms or actual physical quantities |
                     """
                 )
 
