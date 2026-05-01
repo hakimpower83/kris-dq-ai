@@ -7,6 +7,7 @@ import json
 import os
 import base64
 import html
+import hashlib
 from io import BytesIO
 
 
@@ -42,6 +43,13 @@ client = OpenAI(api_key=api_key) if api_key else None
 
 
 # ============================================================
+# APP SETTINGS
+# ============================================================
+
+PROMPT_VERSION = "kris-dq-consistency-v1"
+
+
+# ============================================================
 # KRIS-DQ CATEGORIES
 # ============================================================
 
@@ -74,6 +82,10 @@ KRIS_CATEGORIES = [
 def get_base64_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
+
+
+def get_file_hash(file_bytes):
+    return hashlib.sha256(file_bytes).hexdigest()
 
 
 def fix_categories(api_categories):
@@ -342,6 +354,44 @@ def build_results_table(df):
     return table_html
 
 
+def run_openai_analysis(prompt, schema):
+    try:
+        response = client.responses.create(
+            model="gpt-5",
+            input=prompt,
+            temperature=0,
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "kris_dq_result",
+                    "strict": True,
+                    "schema": schema
+                }
+            }
+        )
+        return response
+
+    except Exception as first_error:
+        error_message = str(first_error).lower()
+
+        if "temperature" in error_message:
+            response = client.responses.create(
+                model="gpt-5",
+                input=prompt,
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "kris_dq_result",
+                        "strict": True,
+                        "schema": schema
+                    }
+                }
+            )
+            return response
+
+        raise first_error
+
+
 # ============================================================
 # CUSTOM CSS
 # ============================================================
@@ -559,7 +609,9 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     st.success("PDF uploaded successfully.")
 
-    pdf_bytes = uploaded_file.read()
+    pdf_bytes = uploaded_file.getvalue()
+    file_hash = get_file_hash(pdf_bytes)
+
     pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
 
     col_a, col_b = st.columns(2)
@@ -648,11 +700,14 @@ You are an expert analyst in corporate risk disclosure, corporate governance, an
 
 Analyze the following annual report text using the KRIS-DQ framework.
 
-Your main objective is to assess the presence and quality of risk-related disclosures across the 18 defined KRIS-DQ key risk areas.
+Your task is to assess the presence and quality of risk-related disclosures across the 18 fixed KRIS-DQ key risk areas.
 
 Risk in the KRIS-DQ context refers to any potential event, condition, issue, or trend, whether internal or external, that could adversely affect a company's strategy, operations, financial performance, reporting quality, compliance position, sustainability performance, reputation, or long-term value creation.
 
-Use a medium moderate scoring approach. Risk disclosure must be clearly stated in the text in order to be considered. Do not infer, assume, or over-interpret vague language. Only assess and score a risk category when the disclosure is explicitly identifiable from the annual report text.
+Use a conservative medium-moderate scoring approach.
+
+Important consistency rule:
+Apply the same scoring standard to every category. If the evidence is unclear, weak, indirect, or only implied, choose the lower score. Do not give the benefit of the doubt.
 
 First, identify the main reporting company or group name from the annual report text.
 
@@ -672,27 +727,49 @@ Scoring guide:
 3 = Includes mitigation strategies, governance actions, controls, response plans, monitoring activities, or management actions
 4 = Includes quantitative, measurable, or specific numerical information that improves the usefulness of the risk disclosure
 
-Scoring rules:
-- Score 0 if the category is not discussed.
-- Score 1 if the risk is only mentioned briefly, generally, or in a boilerplate manner.
-- Score 2 if the disclosure explains the nature of the risk, exposure, consequence, or possible impact on the company.
-- Score 3 if the disclosure explains how the company manages, mitigates, monitors, governs, controls, or responds to the risk.
-- Score 4 only if the disclosure includes relevant quantitative, measurable, or specific numerical information connected to the risk, exposure, impact, mitigation, performance, target, incident, trend, or outcome.
+Apply this exact scoring decision process for every category:
+
+Step 1: Check whether the risk category is explicitly disclosed.
+- If the risk category is not clearly and explicitly identifiable, assign score 0.
+- Do not infer disclosure from broad business descriptions, general strategy statements, or vague sustainability language.
+
+Step 2: If the risk is mentioned but only briefly, generally, or in boilerplate language, assign score 1.
+- Score 1 applies when the report names or lightly refers to the risk but provides little company-specific explanation.
+
+Step 3: If the report explains the risk, exposure, consequence, or impact on the company, assign score 2.
+- Score 2 requires a clear description of how the risk may affect the company, its operations, performance, compliance, reporting, reputation, or stakeholders.
+
+Step 4: If the report explains how the company manages, mitigates, monitors, governs, controls, or responds to the risk, assign score 3.
+- Score 3 requires a management response, mitigation strategy, governance action, monitoring process, control, policy, plan, or response mechanism.
+
+Step 5: Assign score 4 only when the disclosure includes quantitative, measurable, or specific numerical information directly connected to the risk category.
 - Quantitative information may include monetary values, percentages, ratios, counts, volumes, timelines, targets, incident numbers, training hours, emission figures, liquidity ratios, or other measurable indicators.
-- Do not give a score of 4 merely because the annual report contains general financial numbers. The numbers must be directly relevant to the specific risk category.
-- Score must reflect the quality of disclosure, not the severity of the risk.
-- Do not reward repeated headings, generic statements, or vague claims unless they provide meaningful disclosure.
-- If the same disclosure could fit more than one category, assign it to the most relevant category and avoid repeating the same summary across multiple categories.
-- Do not invent information not found in the report.
+- Do not assign score 4 merely because the annual report contains general financial numbers.
+- The number must directly improve the quality of the risk disclosure for that specific category.
+
+Tie-breaking rules:
+- If the disclosure sits between two scores, choose the lower score.
+- If the same sentence could support multiple categories, use it only where it is most relevant.
+- Do not repeat the same generic summary across several categories.
+- Do not reward repeated headings or repeated boilerplate statements.
+- Do not score based on the importance or severity of the risk. Score only the quality of disclosure.
+- Do not invent information not found in the annual report text.
 
 Summary requirement:
-For each category, provide a brief but complete summary that:
+For each category, provide a concise but useful summary that:
 - identifies the risk discussed;
 - explains the disclosed impact, exposure, or relevance to the company;
 - mentions mitigation, response, governance action, control, monitoring activity, or management strategy where available;
-- includes quantitative information where disclosed;
-- remains concise and useful for judging disclosure quality;
+- includes quantitative information only where disclosed;
+- supports the score assigned;
 - uses "No relevant disclosure identified." if the category is not discussed.
+
+Before finalising the JSON, internally check that:
+- all 18 categories are included exactly once;
+- each score follows the 0 to 4 criteria;
+- score 4 is only used where specific quantitative information is present;
+- unclear cases are scored conservatively;
+- the total scoring approach is consistent across all categories.
 
 Important output rules:
 - Return valid JSON only.
@@ -726,20 +803,20 @@ Annual report text:
 """
 
             try:
-                response = client.responses.create(
-                    model="gpt-5",
-                    input=prompt,
-                    text={
-                        "format": {
-                            "type": "json_schema",
-                            "name": "kris_dq_result",
-                            "strict": True,
-                            "schema": schema
-                        }
-                    }
-                )
+                if "analysis_cache" not in st.session_state:
+                    st.session_state["analysis_cache"] = {}
 
-                data = json.loads(response.output_text)
+                cache_key = f"{PROMPT_VERSION}_{file_hash}"
+
+                if cache_key in st.session_state["analysis_cache"]:
+                    data = st.session_state["analysis_cache"][cache_key]
+                    used_cached_result = True
+                else:
+                    response = run_openai_analysis(prompt, schema)
+                    data = json.loads(response.output_text)
+
+                    st.session_state["analysis_cache"][cache_key] = data
+                    used_cached_result = False
 
                 company_name = data.get("company_name", "Not identified").strip()
                 if not company_name:
@@ -760,6 +837,11 @@ Annual report text:
                     """,
                     unsafe_allow_html=True
                 )
+
+                if used_cached_result:
+                    st.caption(
+                        "Consistency note: this result was reused from the same uploaded PDF during the current session."
+                    )
 
                 st.markdown(
                     """
