@@ -9,12 +9,21 @@ import base64
 import html
 from io import BytesIO
 
+
+# ============================================================
+# PAGE CONFIGURATION
+# ============================================================
+
 st.set_page_config(
     page_title="KRIS-DQ.ai",
     page_icon="Logo.png",
     layout="wide"
 )
 
+
+# ============================================================
+# OPENAI API KEY
+# ============================================================
 
 def get_openai_api_key():
     api_key = os.getenv("OPENAI_API_KEY")
@@ -30,6 +39,11 @@ def get_openai_api_key():
 
 api_key = get_openai_api_key()
 client = OpenAI(api_key=api_key) if api_key else None
+
+
+# ============================================================
+# KRIS-DQ CATEGORIES
+# ============================================================
 
 KRIS_CATEGORIES = [
     "Business Resilience",
@@ -53,6 +67,10 @@ KRIS_CATEGORIES = [
 ]
 
 
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
+
 def get_base64_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
@@ -73,7 +91,7 @@ def fix_categories(api_categories):
 
             try:
                 score = int(item.get("score", 0))
-            except:
+            except Exception:
                 score = 0
 
             score = max(0, min(score, 4))
@@ -185,13 +203,14 @@ def build_results_table(df):
 
             .table-container {{
                 width: 100%;
-                overflow-x: hidden;
+                overflow-x: auto;
                 padding: 0;
                 box-sizing: border-box;
             }}
 
             table {{
                 width: 100%;
+                min-width: 950px;
                 border-collapse: collapse;
                 table-layout: fixed;
                 font-size: 15px;
@@ -239,7 +258,7 @@ def build_results_table(df):
             }}
 
             .col-summary {{
-                width: auto;
+                width: 480px;
             }}
 
             .score-0 {{
@@ -270,6 +289,7 @@ def build_results_table(df):
             @media (max-width: 768px) {{
                 table {{
                     font-size: 13px;
+                    min-width: 900px;
                 }}
 
                 th, td {{
@@ -290,6 +310,10 @@ def build_results_table(df):
 
                 .col-meaning {{
                     width: 90px;
+                }}
+
+                .col-summary {{
+                    width: 450px;
                 }}
             }}
         </style>
@@ -317,6 +341,10 @@ def build_results_table(df):
 
     return table_html
 
+
+# ============================================================
+# CUSTOM CSS
+# ============================================================
 
 st.markdown(
     """
@@ -470,6 +498,11 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
+# ============================================================
+# HEADER AND LANDING PAGE
+# ============================================================
+
 logo_path = "new_logo.png"
 
 if os.path.exists(logo_path):
@@ -508,10 +541,20 @@ st.info(
     "Governance Statement, AC Report, and RMC Report may improve accuracy and reduce processing time."
 )
 
+
+# ============================================================
+# FILE UPLOAD
+# ============================================================
+
 uploaded_file = st.file_uploader(
     "Upload Annual Report (PDF) to begin KRIS-DQ analysis",
     type="pdf"
 )
+
+
+# ============================================================
+# MAIN APP LOGIC
+# ============================================================
 
 if uploaded_file is not None:
     st.success("PDF uploaded successfully.")
@@ -600,18 +643,24 @@ if uploaded_file is not None:
                 "required": ["company_name", "categories"]
             }
 
-            try:
-                response = client.responses.create(
-                    model="gpt-5",
-                    input=f"""
-You are an expert in corporate risk disclosure and KRIS-DQ scoring.
+            prompt = f"""
+You are an expert analyst in corporate risk disclosure, corporate governance, annual report analysis, and KRIS-DQ scoring.
 
 Analyze the following annual report text using the KRIS-DQ framework.
 
+Your main objective is to assess the presence and quality of risk-related disclosures across the 18 defined KRIS-DQ key risk areas.
+
+Risk in the KRIS-DQ context refers to any potential event, condition, issue, or trend, whether internal or external, that could adversely affect a company's strategy, operations, financial performance, reporting quality, compliance position, sustainability performance, reputation, or long-term value creation.
+
+Use a medium moderate scoring approach. Risk disclosure must be clearly stated in the text in order to be considered. Do not infer, assume, or over-interpret vague language. Only assess and score a risk category when the disclosure is explicitly identifiable from the annual report text.
+
 First, identify the main reporting company or group name from the annual report text.
-Return the official reporting company name as company_name.
+
+Return the official reporting company or group name as "company_name".
+
 If the company name cannot be identified, return "Not identified".
-Do not use the name of subsidiaries, auditors, banks, customers, projects, hotels, or unrelated companies as the company_name.
+
+Do not use the name of subsidiaries, auditors, banks, customers, projects, hotels, suppliers, directors, shareholders, or unrelated companies as the company_name.
 
 You MUST evaluate all 18 KRIS-DQ categories below:
 {categories_text}
@@ -620,31 +669,66 @@ Scoring guide:
 0 = No disclosure
 1 = Generic or minimal mention
 2 = Descriptive explanation of risk or impact
-3 = Includes mitigation strategies or management actions
-4 = Includes quantitative or measurable information
+3 = Includes mitigation strategies, governance actions, controls, response plans, monitoring activities, or management actions
+4 = Includes quantitative, measurable, or specific numerical information that improves the usefulness of the risk disclosure
+
+Scoring rules:
+- Score 0 if the category is not discussed.
+- Score 1 if the risk is only mentioned briefly, generally, or in a boilerplate manner.
+- Score 2 if the disclosure explains the nature of the risk, exposure, consequence, or possible impact on the company.
+- Score 3 if the disclosure explains how the company manages, mitigates, monitors, governs, controls, or responds to the risk.
+- Score 4 only if the disclosure includes relevant quantitative, measurable, or specific numerical information connected to the risk, exposure, impact, mitigation, performance, target, incident, trend, or outcome.
+- Quantitative information may include monetary values, percentages, ratios, counts, volumes, timelines, targets, incident numbers, training hours, emission figures, liquidity ratios, or other measurable indicators.
+- Do not give a score of 4 merely because the annual report contains general financial numbers. The numbers must be directly relevant to the specific risk category.
+- Score must reflect the quality of disclosure, not the severity of the risk.
+- Do not reward repeated headings, generic statements, or vague claims unless they provide meaningful disclosure.
+- If the same disclosure could fit more than one category, assign it to the most relevant category and avoid repeating the same summary across multiple categories.
+- Do not invent information not found in the report.
 
 Summary requirement:
 For each category, provide a brief but complete summary that:
 - identifies the risk discussed;
-- explains the disclosed impact or exposure;
-- mentions mitigation, response, governance action, or management strategy where available;
+- explains the disclosed impact, exposure, or relevance to the company;
+- mentions mitigation, response, governance action, control, monitoring activity, or management strategy where available;
 - includes quantitative information where disclosed;
-- remains concise and useful for judging disclosure quality.
+- remains concise and useful for judging disclosure quality;
+- uses "No relevant disclosure identified." if the category is not discussed.
 
-Important rules:
+Important output rules:
+- Return valid JSON only.
+- Do not include markdown.
+- Do not include explanations outside the JSON.
+- Do not include comments before or after the JSON.
+- Return exactly one JSON object.
 - Return the company_name and exactly 18 category objects.
 - Use each category exactly once.
 - Use the exact category names provided.
 - Do not combine categories.
 - Do not rename categories.
 - Do not create new categories.
-- If the category is not discussed, score it 0 and write "No relevant disclosure identified."
-- Do not invent information not found in the report.
-- Score must reflect the quality of disclosure, not the severity of the risk.
+- Score must be an integer from 0 to 4.
+
+The JSON must follow this exact structure:
+
+{{
+  "company_name": "Company name here",
+  "categories": [
+    {{
+      "risk_category": "Exact KRIS-DQ category name",
+      "score": 0,
+      "summary": "Brief summary here."
+    }}
+  ]
+}}
 
 Annual report text:
 {text_sample}
-""",
+"""
+
+            try:
+                response = client.responses.create(
+                    model="gpt-5",
+                    input=prompt,
                     text={
                         "format": {
                             "type": "json_schema",
@@ -666,7 +750,7 @@ Annual report text:
                 total_score = sum(item["score"] for item in fixed_categories)
                 maximum_score = 72
                 normalized_score = round(total_score / maximum_score, 2)
-                percentage_score = round(normalized_score * 100, 1)
+                percentage_score = round((total_score / maximum_score) * 100, 1)
 
                 st.markdown(
                     """
@@ -724,7 +808,7 @@ Annual report text:
                 st.markdown(
                     """
                     <div class="section-heading">
-                    Key Risk Disclosure Quality Summary
+                    KRIS-DQ Score Summary
                     </div>
                     """,
                     unsafe_allow_html=True
