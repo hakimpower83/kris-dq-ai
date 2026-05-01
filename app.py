@@ -1,9 +1,12 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import fitz  # PyMuPDF
 from openai import OpenAI
 import pandas as pd
 import json
 import os
+import base64
+import html
 from io import BytesIO
 
 st.set_page_config(
@@ -12,7 +15,21 @@ st.set_page_config(
     layout="wide"
 )
 
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+def get_openai_api_key():
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    if api_key:
+        return api_key
+
+    try:
+        return st.secrets["OPENAI_API_KEY"]
+    except Exception:
+        return None
+
+
+api_key = get_openai_api_key()
+client = OpenAI(api_key=api_key) if api_key else None
 
 KRIS_CATEGORIES = [
     "Business Resilience",
@@ -34,6 +51,11 @@ KRIS_CATEGORIES = [
     "Mergers and Acquisitions",
     "Health, Safety and Operational Incidents"
 ]
+
+
+def get_base64_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
 
 
 def fix_categories(api_categories):
@@ -86,31 +108,32 @@ def score_label(score):
     return labels.get(score, str(score))
 
 
-def highlight_scores(value):
-    if value == 0:
-        return "background-color: #374151; color: white;"
-    elif value == 1:
-        return "background-color: #7f1d1d; color: white;"
-    elif value == 2:
-        return "background-color: #92400e; color: white;"
-    elif value == 3:
-        return "background-color: #1e3a8a; color: white;"
-    elif value == 4:
-        return "background-color: #14532d; color: white;"
-    return ""
-
-
-def convert_df_to_excel(df, total_score, maximum_score, normalized_score, percentage_score):
+def convert_df_to_excel(
+    df,
+    company_name,
+    uploaded_file_name,
+    pages_reviewed,
+    total_score,
+    maximum_score,
+    normalized_score,
+    percentage_score
+):
     output = BytesIO()
 
     summary_df = pd.DataFrame({
         "Metric": [
+            "Company Name",
+            "Uploaded File",
+            "Pages Reviewed",
             "Total KRIS-DQ Score",
             "Maximum Score",
             "Normalized Score",
             "Percentage Score"
         ],
         "Value": [
+            company_name,
+            uploaded_file_name,
+            pages_reviewed,
             total_score,
             maximum_score,
             normalized_score,
@@ -125,40 +148,196 @@ def convert_df_to_excel(df, total_score, maximum_score, normalized_score, percen
     return output.getvalue()
 
 
+def build_results_table(df):
+    table_rows = ""
+
+    for _, row in df.iterrows():
+        score = int(row["KRIS-DQ Score"])
+
+        no_value = html.escape(str(row["No."]))
+        category_value = html.escape(str(row["Risk Category"]))
+        score_value = html.escape(str(row["KRIS-DQ Score"]))
+        meaning_value = html.escape(str(row["Score Meaning"]))
+        summary_value = html.escape(str(row["Summary of Disclosure"]))
+
+        table_rows += f"""
+        <tr>
+            <td class="col-no">{no_value}</td>
+            <td class="col-category">{category_value}</td>
+            <td class="col-score score-{score}">{score_value}</td>
+            <td class="col-meaning">{meaning_value}</td>
+            <td class="col-summary">{summary_value}</td>
+        </tr>
+        """
+
+    table_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            html, body {{
+                margin: 0;
+                padding: 0;
+                background: transparent;
+                color: #f9fafb;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            }}
+
+            .table-container {{
+                width: 100%;
+                overflow-x: hidden;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+                font-size: 15px;
+                background: rgba(17, 24, 39, 0.35);
+                border-radius: 10px;
+                overflow: hidden;
+            }}
+
+            th {{
+                background: rgba(31, 41, 55, 0.95);
+                color: #d1d5db;
+                padding: 12px 10px;
+                text-align: left;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                font-weight: 700;
+            }}
+
+            td {{
+                padding: 12px 10px;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                vertical-align: top;
+                line-height: 1.45;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }}
+
+            .col-no {{
+                width: 45px;
+                text-align: center;
+            }}
+
+            .col-category {{
+                width: 230px;
+            }}
+
+            .col-score {{
+                width: 70px;
+                text-align: center;
+                font-weight: 800;
+            }}
+
+            .col-meaning {{
+                width: 120px;
+            }}
+
+            .col-summary {{
+                width: auto;
+            }}
+
+            .score-0 {{
+                background-color: #374151;
+                color: white;
+            }}
+
+            .score-1 {{
+                background-color: #7f1d1d;
+                color: white;
+            }}
+
+            .score-2 {{
+                background-color: #92400e;
+                color: white;
+            }}
+
+            .score-3 {{
+                background-color: #1e3a8a;
+                color: white;
+            }}
+
+            .score-4 {{
+                background-color: #14532d;
+                color: white;
+            }}
+
+            @media (max-width: 768px) {{
+                table {{
+                    font-size: 13px;
+                }}
+
+                th, td {{
+                    padding: 9px 7px;
+                }}
+
+                .col-no {{
+                    width: 38px;
+                }}
+
+                .col-category {{
+                    width: 150px;
+                }}
+
+                .col-score {{
+                    width: 55px;
+                }}
+
+                .col-meaning {{
+                    width: 90px;
+                }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="col-no">No.</th>
+                        <th class="col-category">Risk Category</th>
+                        <th class="col-score">Score</th>
+                        <th class="col-meaning">Meaning</th>
+                        <th class="col-summary">Summary of Disclosure</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {table_rows}
+                </tbody>
+            </table>
+        </div>
+    </body>
+    </html>
+    """
+
+    return table_html
+
+
 st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 3rem;
+        padding-top: 2.5rem;
         padding-bottom: 1.5rem;
     }
 
-    .logo-box {
+    .logo-wrapper {
         display: flex;
+        justify-content: center;
         align-items: center;
-        gap: 20px;
-        margin-bottom: 12px;
+        margin-top: 0.5rem;
+        margin-bottom: 1.8rem;
     }
 
-    .logo-img {
-        width: 95px;
-        height: 95px;
-        object-fit: contain;
-    }
-
-    .app-title {
-        font-size: 58px;
-        font-weight: 800;
-        margin: 0;
-        line-height: 1.1;
-        margin-bottom: 6px
-    }
-
-    .app-subtitle {
-        font-size: 19px;
-        font-weight: 600;
-        margin-top: 2px;
-        margin-bottom: 0.9px;
+    .logo-banner {
+        width: min(60vw, 560px);
+        height: auto;
+        border-radius: 14px;
     }
 
     .app-description {
@@ -166,63 +345,162 @@ st.markdown(
         line-height: 1.6;
         max-width: 1200px;
         margin-top: 12px;
+        margin-bottom: 18px;
     }
 
-    .score-card {
-        padding: 28px;
-        border-radius: 18px;
-        background: rgba(31, 41, 55, 0.55);
-        border: 1px solid rgba(255,255,255,0.08);
-        text-align: center;
+    .analysis-complete {
+        padding: 14px 18px;
+        border-radius: 12px;
+        background: rgba(22, 101, 52, 0.22);
+        border: 1px solid rgba(34, 197, 94, 0.35);
+        color: #86efac;
+        font-size: 17px;
+        font-weight: 600;
+        margin-top: 8px;
+        margin-bottom: 24px;
     }
 
-    .score-main {
-        font-size: 58px;
+    .section-heading {
+        font-size: 34px;
         font-weight: 800;
-        margin-bottom: 0;
+        margin-top: 12px;
+        margin-bottom: 18px;
     }
 
-    .score-label {
-        font-size: 18px;
-        opacity: 0.85;
+    .context-card {
+        padding: 20px 22px;
+        border-radius: 16px;
+        background: rgba(31, 41, 55, 0.42);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        min-height: 105px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        margin-bottom: 12px;
+    }
+
+    .context-label {
+        font-size: 14px;
+        font-weight: 700;
+        opacity: 0.72;
+        margin-bottom: 8px;
+    }
+
+    .context-value {
+        font-size: 20px;
+        font-weight: 750;
+        line-height: 1.3;
+    }
+
+    .result-card {
+        padding: 24px 22px;
+        border-radius: 18px;
+        background: rgba(31, 41, 55, 0.50);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        min-height: 150px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .result-card.primary {
+        background: linear-gradient(135deg, rgba(30, 58, 138, 0.75), rgba(15, 23, 42, 0.85));
+        border: 1px solid rgba(96, 165, 250, 0.35);
+    }
+
+    .result-label {
+        font-size: 15px;
+        font-weight: 700;
+        opacity: 0.82;
+        margin-bottom: 10px;
+    }
+
+    .result-value {
+        font-size: 42px;
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 10px;
+    }
+
+    .result-note {
+        font-size: 14px;
+        opacity: 0.70;
+        line-height: 1.4;
+    }
+
+    @media (max-width: 768px) {
+        .block-container {
+            padding-top: 1.5rem;
+        }
+
+        .logo-banner {
+            width: 92vw;
+            border-radius: 12px;
+        }
+
+        .app-description {
+            font-size: 16px;
+            line-height: 1.55;
+        }
+
+        .section-heading {
+            font-size: 28px;
+        }
+
+        .context-card {
+            min-height: 90px;
+            padding: 18px;
+        }
+
+        .context-value {
+            font-size: 17px;
+        }
+
+        .result-card {
+            min-height: 120px;
+            padding: 20px;
+        }
+
+        .result-value {
+            font-size: 36px;
+        }
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-logo_path = "Logo.png"
+logo_path = "new_logo.png"
 
 if os.path.exists(logo_path):
-    col_logo, col_title = st.columns([1, 10])
+    logo_base64 = get_base64_image(logo_path)
 
-    with col_logo:
-        st.image(logo_path, use_container_width=True)
-
-    with col_title:
-        st.markdown(
-            """
-            <div>
-                <div class="app-title">KRIS-DQ.ai</div>
-                <div class="app-subtitle">AI-powered Key Risk Disclosure Quality analysis</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.caption("Built on the KRIS-DQ framework developed through academic research.")
+    st.markdown(
+        f"""
+        <div class="logo-wrapper">
+            <img class="logo-banner" src="data:image/png;base64,{logo_base64}">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 else:
     st.title("KRIS-DQ.ai")
-    st.warning("Logo.png not found. Please place Logo.png in the same folder as app.py.")
+    st.warning("new_logo.png not found. Please place new_logo.png in the same folder as app.py.")
 
 st.markdown(
     """
     <div class="app-description">
-    KRIS-DQ.ai evaluates annual report disclosures using the KRIS-DQ framework, transforming unstructured narratives into structured, comparable risk disclosure scores. It generates category-level insights, concise summaries, and an overall disclosure quality score to support research, governance, and decision-making.
+    KRIS-DQ.ai evaluates annual report disclosures using the KRIS-DQ framework, transforming unstructured narratives into structured, comparable risk disclosure scores. Built on the KRIS-DQ framework developed through academic research, it generates category-level insights, concise summaries, and an overall disclosure quality score to support research, governance, and decision-making.
     </div>
     """,
     unsafe_allow_html=True
 )
+
+if client is None:
+    st.warning(
+        "OpenAI API key not found. Please set your API key as an environment variable named OPENAI_API_KEY "
+        "or add it to Streamlit secrets."
+    )
 
 st.info(
     "Upload an annual report or selected risk-related sections to begin analysis. "
@@ -258,17 +536,24 @@ if uploaded_file is not None:
 
     for i in range(min(3, len(pdf))):
         page = pdf[i]
-        pix = page.get_pixmap(matrix=fitz.Matrix(0.7, 0.7))
+        pix = page.get_pixmap(matrix=fitz.Matrix(0.45, 0.45))
         img_bytes = pix.tobytes("png")
 
         with preview_cols[i]:
-            st.image(img_bytes, caption=f"Page {i + 1}")
+            st.image(img_bytes, caption=f"Page {i + 1}", width=300)
 
     st.markdown("---")
 
     analyze = st.button("Generate KRIS-DQ Analysis", use_container_width=True)
 
     if analyze:
+        if client is None:
+            st.error(
+                "Analysis cannot run because the OpenAI API key is missing. "
+                "Please set OPENAI_API_KEY before running the app."
+            )
+            st.stop()
+
         with st.spinner("Generating KRIS-DQ analysis..."):
             text_sample = ""
 
@@ -285,6 +570,9 @@ if uploaded_file is not None:
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
+                    "company_name": {
+                        "type": "string"
+                    },
                     "categories": {
                         "type": "array",
                         "minItems": 18,
@@ -309,7 +597,7 @@ if uploaded_file is not None:
                         }
                     }
                 },
-                "required": ["categories"]
+                "required": ["company_name", "categories"]
             }
 
             try:
@@ -319,6 +607,11 @@ if uploaded_file is not None:
 You are an expert in corporate risk disclosure and KRIS-DQ scoring.
 
 Analyze the following annual report text using the KRIS-DQ framework.
+
+First, identify the main reporting company or group name from the annual report text.
+Return the official reporting company name as company_name.
+If the company name cannot be identified, return "Not identified".
+Do not use the name of subsidiaries, auditors, banks, customers, projects, hotels, or unrelated companies as the company_name.
 
 You MUST evaluate all 18 KRIS-DQ categories below:
 {categories_text}
@@ -339,7 +632,7 @@ For each category, provide a brief but complete summary that:
 - remains concise and useful for judging disclosure quality.
 
 Important rules:
-- Return exactly 18 category objects.
+- Return the company_name and exactly 18 category objects.
 - Use each category exactly once.
 - Use the exact category names provided.
 - Do not combine categories.
@@ -363,6 +656,11 @@ Annual report text:
                 )
 
                 data = json.loads(response.output_text)
+
+                company_name = data.get("company_name", "Not identified").strip()
+                if not company_name:
+                    company_name = "Not identified"
+
                 fixed_categories = fix_categories(data.get("categories", []))
 
                 total_score = sum(item["score"] for item in fixed_categories)
@@ -370,35 +668,117 @@ Annual report text:
                 normalized_score = round(total_score / maximum_score, 2)
                 percentage_score = round(normalized_score * 100, 1)
 
-                st.success("Analysis complete.")
+                st.markdown(
+                    """
+                    <div class="analysis-complete">
+                    Analysis complete. Please review the AI-assisted results below.
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-                st.markdown("## KRIS-DQ Score Summary")
+                st.markdown(
+                    """
+                    <div class="section-heading">
+                    Analysis Context
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-                score_col, total_col, max_col, checked_col = st.columns(4)
+                context_col1, context_col2, context_col3 = st.columns(3)
 
-                with score_col:
+                with context_col1:
                     st.markdown(
                         f"""
-                        <div class="score-card">
-                            <div class="score-main">{percentage_score}%</div>
-                            <div class="score-label">Overall KRIS-DQ Percentage</div>
+                        <div class="context-card">
+                            <div class="context-label">Company Analysed</div>
+                            <div class="context-value">{html.escape(company_name)}</div>
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
 
-                with total_col:
-                    st.metric("Total Score", total_score)
+                with context_col2:
+                    st.markdown(
+                        f"""
+                        <div class="context-card">
+                            <div class="context-label">Uploaded File</div>
+                            <div class="context-value">{html.escape(uploaded_file.name)}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
-                with max_col:
-                    st.metric("Maximum Score", maximum_score)
+                with context_col3:
+                    st.markdown(
+                        f"""
+                        <div class="context-card">
+                            <div class="context-label">Pages Reviewed</div>
+                            <div class="context-value">{len(pdf)}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
-                with checked_col:
-                    st.metric("Categories Checked", "18 / 18")
-
-                st.caption(
-                    f"Normalized score: {normalized_score} | Raw score: {total_score} out of {maximum_score}"
+                st.markdown(
+                    """
+                    <div class="section-heading">
+                    KRIS-DQ Score Summary
+                    </div>
+                    """,
+                    unsafe_allow_html=True
                 )
+
+                summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
+
+                with summary_col1:
+                    st.markdown(
+                        f"""
+                        <div class="result-card primary">
+                            <div class="result-label">Overall KRIS-DQ Percentage</div>
+                            <div class="result-value">{percentage_score}%</div>
+                            <div class="result-note">Normalized score: {normalized_score}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                with summary_col2:
+                    st.markdown(
+                        f"""
+                        <div class="result-card">
+                            <div class="result-label">Total Score</div>
+                            <div class="result-value">{total_score}</div>
+                            <div class="result-note">Raw score out of 72</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                with summary_col3:
+                    st.markdown(
+                        f"""
+                        <div class="result-card">
+                            <div class="result-label">Maximum Score</div>
+                            <div class="result-value">{maximum_score}</div>
+                            <div class="result-note">18 categories x 4 points</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                with summary_col4:
+                    st.markdown(
+                        f"""
+                        <div class="result-card">
+                            <div class="result-label">Categories Checked</div>
+                            <div class="result-value">18 / 18</div>
+                            <div class="result-note">All KRIS-DQ categories reviewed</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
                 st.markdown("---")
 
@@ -421,20 +801,19 @@ Annual report text:
                     "Summary of Disclosure"
                 ]
 
-                styled_df = df.style.map(
-                    highlight_scores,
-                    subset=["KRIS-DQ Score"]
-                )
+                results_table = build_results_table(df)
 
-                st.dataframe(
-                    styled_df,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=520
+                components.html(
+                    results_table,
+                    height=900,
+                    scrolling=True
                 )
 
                 excel_file = convert_df_to_excel(
                     df,
+                    company_name,
+                    uploaded_file.name,
+                    len(pdf),
                     total_score,
                     maximum_score,
                     normalized_score,
