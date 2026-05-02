@@ -47,7 +47,7 @@ client = OpenAI(api_key=api_key) if api_key else None
 # ============================================================
 
 PROMPT_VERSION = "kris-dq-published-framework-v3"
-MAX_TEXT_CHARS = 60000
+MAX_ANALYSIS_CHARS = 60000
 
 
 # ============================================================
@@ -229,9 +229,6 @@ def convert_df_to_excel(
     company_name,
     uploaded_file_name,
     pages_reviewed,
-    total_extracted_chars,
-    characters_reviewed,
-    text_was_truncated,
     total_score,
     maximum_score,
     normalized_score,
@@ -244,9 +241,6 @@ def convert_df_to_excel(
             "Company Name",
             "Uploaded File",
             "Pages Reviewed",
-            "Total Extracted Characters",
-            "Characters Reviewed",
-            "Text Truncated",
             "Total KRIS-DQ Score",
             "Maximum Score",
             "Normalized Score",
@@ -258,9 +252,6 @@ def convert_df_to_excel(
             company_name,
             uploaded_file_name,
             pages_reviewed,
-            total_extracted_chars,
-            characters_reviewed,
-            "Yes" if text_was_truncated else "No",
             total_score,
             maximum_score,
             normalized_score,
@@ -644,18 +635,6 @@ st.markdown(
         line-height: 1.4;
     }
 
-    .review-warning {
-        padding: 14px 18px;
-        border-radius: 12px;
-        background: rgba(146, 64, 14, 0.22);
-        border: 1px solid rgba(251, 191, 36, 0.35);
-        color: #fde68a;
-        font-size: 15px;
-        line-height: 1.45;
-        margin-top: 8px;
-        margin-bottom: 18px;
-    }
-
     .human-review-note {
         padding: 14px 18px;
         border-radius: 12px;
@@ -748,9 +727,13 @@ if client is None:
     )
 
 st.info(
-    "Upload an annual report or selected risk-related sections to begin analysis. "
-    "The system supports full reports, but filtered sections such as SORMIC, MD&A, Sustainability Statement, "
-    "Governance Statement, AC Report, and RMC Report may improve accuracy and reduce processing time."
+    "For best results, it is highly recommended to upload selected risk-related sections "
+    "rather than a full annual report. Suitable sections include SORMIC, MD&A, "
+    "Sustainability Statement, CG Report, AC Report, RMC Report, Directors' Report, "
+    "and other risk management or governance-related sections. Full annual reports are accepted, "
+    "but they may contain substantial non-risk content such as financial statements, notes, "
+    "corporate information, repeated headers, and administrative pages, which can reduce focus "
+    "and affect scoring accuracy."
 )
 
 
@@ -759,7 +742,7 @@ st.info(
 # ============================================================
 
 uploaded_file = st.file_uploader(
-    "Upload Annual Report (PDF) to begin KRIS-DQ analysis",
+    "Upload Annual Report or Selected Risk-Related Sections (PDF)",
     type="pdf"
 )
 
@@ -787,7 +770,10 @@ if uploaded_file is not None:
     st.markdown("---")
 
     st.subheader("PDF Preview")
-    st.caption("First three pages are shown for confirmation.")
+    st.caption(
+        "First three pages are shown for confirmation. "
+        "For best accuracy, selected risk-related sections are recommended."
+    )
 
     preview_cols = st.columns(3)
 
@@ -817,10 +803,7 @@ if uploaded_file is not None:
             for i in range(len(pdf)):
                 full_text += pdf[i].get_text() + "\n\n"
 
-            total_extracted_chars = len(full_text)
-            text_was_truncated = total_extracted_chars > MAX_TEXT_CHARS
-            text_sample = full_text[:MAX_TEXT_CHARS]
-            characters_reviewed = len(text_sample)
+            text_sample = full_text[:MAX_ANALYSIS_CHARS]
 
             risk_definitions_text = "\n\n".join(
                 [
@@ -1009,7 +992,7 @@ Annual report text:
                 if "analysis_cache" not in st.session_state:
                     st.session_state["analysis_cache"] = {}
 
-                cache_key = f"{PROMPT_VERSION}_{file_hash}_{characters_reviewed}"
+                cache_key = f"{PROMPT_VERSION}_{file_hash}_{MAX_ANALYSIS_CHARS}"
 
                 if cache_key in st.session_state["analysis_cache"]:
                     data = st.session_state["analysis_cache"][cache_key]
@@ -1046,16 +1029,6 @@ Annual report text:
                         "Consistency note: this result was reused from the same uploaded PDF during the current session."
                     )
 
-                if text_was_truncated:
-                    st.markdown(
-                        f"""
-                        <div class="review-warning">
-                        Text limit notice: The uploaded PDF produced {total_extracted_chars:,} extracted characters, but only the first {characters_reviewed:,} characters were reviewed in this analysis. For better accuracy, upload selected risk-related sections such as SORMIC, MD&A, Sustainability Statement, CG Report, AC Report, or RMC Report.
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
                 st.markdown(
                     """
                     <div class="human-review-note">
@@ -1074,7 +1047,7 @@ Annual report text:
                     unsafe_allow_html=True
                 )
 
-                context_col1, context_col2, context_col3, context_col4 = st.columns(4)
+                context_col1, context_col2, context_col3 = st.columns(3)
 
                 with context_col1:
                     st.markdown(
@@ -1104,17 +1077,6 @@ Annual report text:
                         <div class="context-card">
                             <div class="context-label">Pages Reviewed</div>
                             <div class="context-value">{len(pdf)}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-                with context_col4:
-                    st.markdown(
-                        f"""
-                        <div class="context-card">
-                            <div class="context-label">Characters Reviewed</div>
-                            <div class="context-value">{characters_reviewed:,}</div>
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -1226,9 +1188,6 @@ Annual report text:
                     company_name,
                     uploaded_file.name,
                     len(pdf),
-                    total_extracted_chars,
-                    characters_reviewed,
-                    text_was_truncated,
                     total_score,
                     maximum_score,
                     normalized_score,
