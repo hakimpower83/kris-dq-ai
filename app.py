@@ -46,8 +46,9 @@ client = OpenAI(api_key=api_key) if api_key else None
 # APP SETTINGS
 # ============================================================
 
-PROMPT_VERSION = "kris-dq-published-framework-v3"
+PROMPT_VERSION = "kris-dq-published-framework-v4-ui-fixed"
 MAX_ANALYSIS_CHARS = 60000
+ARTICLE_URL = "https://gaexcellence.com/ijemp/article/view/7031"
 
 
 # ============================================================
@@ -272,216 +273,184 @@ def convert_df_to_excel(
 
 
 def build_results_table(df):
-    table_rows = ""
+    rows = ""
 
     for _, row in df.iterrows():
         score = int(row["KRIS-DQ Score"])
 
-        no_value = html.escape(str(row["No."]))
-        category_value = html.escape(str(row["Risk Category"]))
-        evidence_value = html.escape(str(row["Evidence Found"]))
-        score_value = html.escape(str(row["KRIS-DQ Score"]))
-        meaning_value = html.escape(str(row["Score Meaning"]))
-        evidence_summary_value = html.escape(str(row["Evidence Summary"]))
-        summary_value = html.escape(str(row["Summary of Disclosure"]))
-
-        evidence_class = "evidence-yes" if evidence_value == "Yes" else "evidence-no"
-
-        table_rows += f"""
+        rows += f"""
         <tr>
-            <td class="col-no">{no_value}</td>
-            <td class="col-category">{category_value}</td>
-            <td class="col-evidence {evidence_class}">{evidence_value}</td>
-            <td class="col-score score-{score}">{score_value}</td>
-            <td class="col-meaning">{meaning_value}</td>
-            <td class="col-evidence-summary">{evidence_summary_value}</td>
-            <td class="col-summary">{summary_value}</td>
+            <td class="col-no">{html.escape(str(row['No.']))}</td>
+            <td class="col-category">{html.escape(str(row['Risk Category']))}</td>
+            <td class="col-score score-{score}">{html.escape(str(row['KRIS-DQ Score']))}</td>
+            <td class="col-summary">{html.escape(str(row['Summary of Disclosure']))}</td>
         </tr>
         """
 
-    table_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            html, body {{
-                margin: 0;
-                padding: 0;
-                background: transparent;
-                color: #f9fafb;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            }}
+    return f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        html, body {{
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }}
 
-            .table-container {{
-                width: 100%;
-                overflow-x: auto;
-                padding: 0;
-                box-sizing: border-box;
-            }}
+        .table-container {{
+            width: 100%;
+            overflow: auto;
+            border-radius: 14px;
+            border: 1px solid #334155;
+            max-height: 690px;
+            background: #0f172a;
+        }}
 
+        .table-container::-webkit-scrollbar {{
+            height: 12px;
+            width: 12px;
+        }}
+
+        .table-container::-webkit-scrollbar-thumb {{
+            background: #64748b;
+            border-radius: 10px;
+        }}
+
+        .table-container::-webkit-scrollbar-track {{
+            background: #0b1220;
+        }}
+
+        table {{
+            width: 100%;
+            min-width: 1080px;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 14px;
+            background: #0f172a;
+            color: #e5e7eb;
+        }}
+
+        th {{
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #1e2a3d;
+            color: #ffffff;
+            padding: 13px 10px;
+            text-align: left;
+            border: 1px solid #334155;
+            font-weight: 800;
+        }}
+
+        td {{
+            padding: 13px 10px;
+            border: 1px solid #334155;
+            vertical-align: top;
+            line-height: 1.5;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+            color: #cbd5e1;
+        }}
+
+        .col-no {{
+            width: 50px;
+            text-align: center;
+        }}
+
+        .col-category {{
+            width: 235px;
+            font-weight: 700;
+            color: #ffffff;
+        }}
+
+        .col-score {{
+            width: 56px;
+            text-align: center;
+            font-weight: 900;
+            color: #ffffff !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
+        }}
+
+        .col-summary {{
+            width: 739px;
+        }}
+
+        .score-0 {{ background: #6b7280; }}
+        .score-1 {{ background: #b91c1c; }}
+        .score-2 {{ background: #b45309; }}
+        .score-3 {{ background: #1d4ed8; }}
+        .score-4 {{ background: #15803d; }}
+
+        @media (max-width: 768px) {{
             table {{
-                width: 100%;
-                min-width: 1450px;
-                border-collapse: collapse;
-                table-layout: fixed;
-                font-size: 14px;
-                background: rgba(17, 24, 39, 0.35);
-                border-radius: 10px;
-                overflow: hidden;
+                font-size: 13px;
+                min-width: 920px;
             }}
 
-            th {{
-                background: rgba(31, 41, 55, 0.95);
-                color: #d1d5db;
-                padding: 12px 10px;
-                text-align: left;
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                font-weight: 700;
+            th, td {{
+                padding: 9px 7px;
             }}
 
-            td {{
-                padding: 12px 10px;
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                vertical-align: top;
-                line-height: 1.45;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                white-space: normal;
-            }}
-
-            .col-no {{
-                width: 45px;
-                text-align: center;
-            }}
-
-            .col-category {{
-                width: 230px;
-            }}
-
-            .col-evidence {{
-                width: 75px;
-                text-align: center;
-                font-weight: 800;
-            }}
-
-            .col-score {{
-                width: 70px;
-                text-align: center;
-                font-weight: 800;
-            }}
-
-            .col-meaning {{
-                width: 110px;
-            }}
-
-            .col-evidence-summary {{
-                width: 410px;
-            }}
-
-            .col-summary {{
-                width: 510px;
-            }}
-
-            .evidence-yes {{
-                background-color: #14532d;
-                color: white;
-            }}
-
-            .evidence-no {{
-                background-color: #374151;
-                color: white;
-            }}
-
-            .score-0 {{
-                background-color: #374151;
-                color: white;
-            }}
-
-            .score-1 {{
-                background-color: #7f1d1d;
-                color: white;
-            }}
-
-            .score-2 {{
-                background-color: #92400e;
-                color: white;
-            }}
-
-            .score-3 {{
-                background-color: #1e3a8a;
-                color: white;
-            }}
-
-            .score-4 {{
-                background-color: #14532d;
-                color: white;
-            }}
-
-            @media (max-width: 768px) {{
-                table {{
-                    font-size: 13px;
-                    min-width: 1350px;
-                }}
-
-                th, td {{
-                    padding: 9px 7px;
-                }}
-
-                .col-no {{
-                    width: 38px;
-                }}
-
-                .col-category {{
-                    width: 180px;
-                }}
-
-                .col-evidence {{
-                    width: 65px;
-                }}
-
-                .col-score {{
-                    width: 55px;
-                }}
-
-                .col-meaning {{
-                    width: 90px;
-                }}
-
-                .col-evidence-summary {{
-                    width: 390px;
-                }}
-
-                .col-summary {{
-                    width: 470px;
-                }}
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="col-no">No.</th>
-                        <th class="col-category">Risk Category</th>
-                        <th class="col-evidence">Evidence</th>
-                        <th class="col-score">Score</th>
-                        <th class="col-meaning">Meaning</th>
-                        <th class="col-evidence-summary">Evidence Summary</th>
-                        <th class="col-summary">Summary of Disclosure</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {table_rows}
-                </tbody>
-            </table>
-        </div>
-    </body>
-    </html>
+            .col-no {{ width: 44px; }}
+            .col-category {{ width: 210px; }}
+            .col-score {{ width: 52px; }}
+            .col-summary {{ width: 614px; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="table-container">
+        <table>
+            <colgroup>
+                <col class="col-no">
+                <col class="col-category">
+                <col class="col-score">
+                <col class="col-summary">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="col-no">No.</th>
+                    <th class="col-category">Risk Category</th>
+                    <th class="col-score">Score</th>
+                    <th class="col-summary">Summary of Disclosure</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
     """
 
-    return table_html
+def build_highlight_card(title, items, empty_message):
+    if not items:
+        list_items = f"<li><span class='highlight-category'>{html.escape(empty_message)}</span></li>"
+    else:
+        list_items = ""
+        for item in items:
+            category = html.escape(str(item["Risk Category"]))
+            score = html.escape(str(item["KRIS-DQ Score"]))
+            meaning = html.escape(str(item["Score Meaning"]))
 
+            list_items += (
+                f"<li>"
+                f"<span class='highlight-category'>{category}</span>"
+                f"<span class='highlight-score'>Score {score} | {meaning}</span>"
+                f"</li>"
+            )
+
+    return (
+        f"<div class='highlight-card'>"
+        f"<div class='highlight-title'>{html.escape(title)}</div>"
+        f"<ol>{list_items}</ol>"
+        f"</div>"
+    )
 
 def run_openai_analysis(prompt, schema):
     try:
@@ -528,57 +497,462 @@ def run_openai_analysis(prompt, schema):
 st.markdown(
     """
     <style>
+    :root {
+        --kris-page-bg: var(--background-color, #0b1220);
+        --kris-page-text: var(--text-color, #f8fafc);
+        --kris-muted: color-mix(in srgb, var(--text-color, #f8fafc) 68%, transparent);
+
+        --kris-card-bg: color-mix(in srgb, var(--secondary-background-color, #111827) 92%, var(--background-color, #0b1220));
+        --kris-card-border: color-mix(in srgb, var(--text-color, #f8fafc) 18%, transparent);
+        --kris-card-text: var(--text-color, #f8fafc);
+        --kris-card-muted: color-mix(in srgb, var(--text-color, #f8fafc) 70%, transparent);
+
+        --kris-badge-bg: #374151;
+        --kris-badge-border: #4b5563;
+        --kris-badge-text: #ffffff;
+
+        --kris-research-bg: color-mix(in srgb, #1d4ed8 18%, var(--secondary-background-color, #111827));
+        --kris-research-border: color-mix(in srgb, #1d4ed8 46%, transparent);
+        --kris-research-label: #60a5fa;
+
+        --kris-step-bg: #25489f;
+        --kris-step-border: #6687e8;
+        --kris-step-number: #c7d7ff;
+        --kris-step-title: #ffffff;
+        --kris-step-text: #e5ecff;
+
+        --kris-fixed-light-bg: #e9edf5;
+        --kris-fixed-light-inner: #f7f9fc;
+        --kris-fixed-light-border: #97a8c3;
+        --kris-fixed-light-text: #111827;
+        --kris-fixed-light-muted: #64748b;
+
+        --kris-blue: #1d4ed8;
+        --kris-blue-dark: #1e40af;
+        --kris-red: #c81e1e;
+        --kris-red-dark: #a4161a;
+        --kris-green: #15803d;
+        --kris-green-dark: #166534;
+    }
+
+    html,
+    body,
+    .stApp,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stAppMain"],
+    section[data-testid="stMain"] {
+        background-color: var(--kris-page-bg) !important;
+        color: var(--kris-page-text) !important;
+    }
+
+    [data-testid="stHeader"] {
+        background: transparent !important;
+    }
+
     .block-container {
-        padding-top: 2.5rem;
-        padding-bottom: 1.5rem;
+        padding-top: 1.35rem;
+        padding-bottom: 1.6rem;
+        max-width: 1280px;
     }
 
     .logo-wrapper {
         display: flex;
         justify-content: center;
         align-items: center;
-        margin-top: 0.5rem;
-        margin-bottom: 1.8rem;
+        margin-top: 0.1rem;
+        margin-bottom: 1.5rem;
     }
 
     .logo-banner {
-        width: min(60vw, 560px);
+        width: min(49vw, 470px);
         height: auto;
         border-radius: 14px;
     }
 
-    .app-description {
+    .hero-main {
+        padding: 26px 28px;
+        border-radius: 22px;
+        background: var(--kris-card-bg);
+        border: 1px solid var(--kris-card-border);
+        min-height: 230px;
+    }
+
+    .hero-subtitle {
+        font-size: 32px;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        margin-bottom: 0.55rem;
+        color: var(--kris-card-text);
+    }
+
+    .hero-description {
         font-size: 18px;
-        line-height: 1.6;
-        max-width: 1200px;
-        margin-top: 12px;
+        line-height: 1.55;
+        color: var(--kris-card-muted);
+        max-width: 780px;
+    }
+
+    .hero-note {
+        margin-top: 0.7rem;
+        font-size: 14px;
+        color: var(--kris-card-muted);
+    }
+
+    .badge-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 1.15rem;
+    }
+
+    .badge {
+        padding: 9px 15px;
+        border-radius: 999px;
+        background: var(--kris-badge-bg);
+        border: 1px solid var(--kris-badge-border);
+        font-size: 14px;
+        font-weight: 750;
+        color: var(--kris-badge-text);
+    }
+
+    .research-card {
+        padding: 26px 24px;
+        border-radius: 22px;
+        background: var(--kris-research-bg);
+        border: 1px solid var(--kris-research-border);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 230px;
+    }
+
+    .research-label {
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--kris-research-label);
+        margin-bottom: 8px;
+    }
+
+    .research-title {
+        font-size: 22px;
+        font-weight: 900;
+        margin-bottom: 8px;
+        color: var(--kris-card-text);
+    }
+
+    .research-text {
+        font-size: 14px;
+        line-height: 1.45;
+        color: var(--kris-card-muted);
+        margin-bottom: 16px;
+    }
+
+    .research-button {
+        display: inline-block;
+        text-align: center;
+        text-decoration: none;
+        padding: 11px 16px;
+        border-radius: 999px;
+        background: var(--kris-blue);
+        border: 1px solid var(--kris-blue);
+        color: #ffffff !important;
+        font-size: 14px;
+        font-weight: 850;
+        box-shadow: none;
+    }
+
+    .research-button:hover {
+        background: var(--kris-blue-dark);
+        border-color: var(--kris-blue-dark);
+        color: #ffffff !important;
+    }
+
+    .step-card {
+        padding: 19px 24px;
+        border-radius: 18px;
+        background: var(--kris-step-bg);
+        border: 1.5px solid var(--kris-step-border);
+        min-height: 150px;
+        margin-top: 34px;
+    }
+
+    .step-number {
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        color: var(--kris-step-number);
+        margin-bottom: 5px;
+    }
+
+    .step-title {
+        font-size: 22px;
+        font-weight: 900;
+        color: var(--kris-step-title);
+        margin-bottom: 6px;
+        line-height: 1.2;
+    }
+
+    .step-text {
+        font-size: 15px;
+        line-height: 1.42;
+        color: var(--kris-step-text);
+        max-width: 420px;
+    }
+
+    .upload-heading {
+        text-align: center;
+        font-size: 30px;
+        font-weight: 900;
+        margin-top: 1.45rem;
+        margin-bottom: 0.2rem;
+        color: var(--kris-page-text);
+    }
+
+    .upload-subheading {
+        text-align: center;
+        font-size: 15px;
+        color: var(--kris-muted);
+        margin-bottom: 1.1rem;
+    }
+
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background: var(--kris-fixed-light-bg) !important;
+        border: 2px solid var(--kris-fixed-light-border) !important;
+        border-radius: 20px !important;
+    }
+
+    [data-testid="stFileUploader"] {
+        background: var(--kris-fixed-light-inner) !important;
+        border: 2px solid var(--kris-fixed-light-border) !important;
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 0.9rem;
+        box-shadow: none;
+    }
+
+    [data-testid="stFileUploader"] section {
+        border-radius: 13px;
+        border: 1.5px dashed #4d6dd3 !important;
+        background: #eef3fb !important;
+        padding: 18px;
+    }
+
+[data-testid="stFileUploader"] * {
+    color: #111827 !important;
+}
+
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploader"] button *,
+[data-testid="stFileUploader"] [role="button"],
+[data-testid="stFileUploader"] [role="button"] * {
+    background: #111827 !important;
+    color: #ffffff !important;
+    border-color: #374151 !important;
+    font-weight: 800 !important;
+}
+
+[data-testid="stFileUploader"] button {
+    border: 1px solid #374151 !important;
+    border-radius: 12px !important;
+}
+/* Fix Tips expander title, arrow, hover, and opened content */
+[data-testid="stExpander"] {
+    background: #111827 !important;
+    border: 1px solid #374151 !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+}
+
+[data-testid="stExpander"] details,
+[data-testid="stExpander"] summary {
+    background: #111827 !important;
+    color: #ffffff !important;
+}
+
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary *,
+[data-testid="stExpander"] svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    font-weight: 900 !important;
+    opacity: 1 !important;
+}
+
+[data-testid="stExpander"] summary:hover,
+[data-testid="stExpander"] summary:hover *,
+[data-testid="stExpander"] summary:focus,
+[data-testid="stExpander"] summary:focus * {
+    color: #ffffff !important;
+    background: #1f2937 !important;
+    opacity: 1 !important;
+}
+
+/* Fix blue text inside Tips/info box */
+[data-testid="stAlert"] {
+    background: #0f2a4a !important;
+    border: 1px solid #1e4f8f !important;
+    border-radius: 10px !important;
+}
+
+[data-testid="stAlert"] *,
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] div,
+[data-testid="stAlert"] span {
+    color: #ffffff !important;
+    font-weight: 500 !important;
+    opacity: 1 !important;
+}
+    .preview-card {
+        padding: 24px;
+        border-radius: 20px;
+        background: var(--kris-fixed-light-bg);
+        border: 2px solid var(--kris-fixed-light-border);
+        min-height: 370px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+    }
+
+    .preview-title {
+        font-size: 24px;
+        font-weight: 900;
+        margin-bottom: 6px;
+        text-align: center;
+        color: var(--kris-fixed-light-text);
+    }
+
+    .preview-caption {
+        font-size: 14px;
+        color: var(--kris-fixed-light-muted);
+        text-align: center;
         margin-bottom: 18px;
     }
 
-    .analysis-complete {
-        padding: 14px 18px;
-        border-radius: 12px;
-        background: rgba(22, 101, 52, 0.22);
-        border: 1px solid rgba(34, 197, 94, 0.35);
-        color: #86efac;
-        font-size: 17px;
-        font-weight: 600;
+    .preview-placeholder {
+        width: 100%;
+        padding: 54px 18px;
+        border-radius: 16px;
+        border: 1.5px dashed #b2bccf;
+        text-align: center;
+        font-size: 15px;
+        color: var(--kris-fixed-light-muted);
+        box-sizing: border-box;
+        background: #f8fafc;
+    }
+
+    .preview-image {
+        width: 100%;
+        max-height: 320px;
+        object-fit: contain;
+        border-radius: 14px;
+        background: white;
+        border: 1px solid #cbd5e1;
+    }
+
+    .file-info-card {
+        padding: 16px 18px;
+        border-radius: 16px;
+        background: var(--kris-fixed-light-inner);
+        border: 1.5px solid #b3bfd1;
         margin-top: 8px;
-        margin-bottom: 24px;
+    }
+
+    .file-info-label {
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--kris-fixed-light-muted);
+        margin-bottom: 7px;
+    }
+
+    .file-info-value {
+        font-size: 16px;
+        font-weight: 900;
+        color: var(--kris-fixed-light-text);
+        line-height: 1.35;
+    }
+
+    .stButton button,
+.stButton button *,
+div.stButton > button,
+div.stButton > button *,
+div[data-testid="stButton"] button,
+div[data-testid="stButton"] button * {
+    color: #ffffff !important;
+    font-size: 24px !important;
+    font-weight: 900 !important;
+    opacity: 1 !important;
+}
+
+.stButton button,
+div.stButton > button,
+div[data-testid="stButton"] button {
+    background: #dc1f1f !important;
+    border: 1px solid #991b1b !important;
+    border-radius: 18px !important;
+    padding: 1.2rem 1.4rem !important;
+    min-height: 68px !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.01em !important;
+    box-shadow: none !important;
+    margin-top: 12px !important;
+}
+
+.stButton button:hover,
+div.stButton > button:hover,
+div[data-testid="stButton"] button:hover {
+    background: #c81e1e !important;
+    border-color: #991b1b !important;
+    color: #ffffff !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.stButton button:hover *,
+div.stButton > button:hover *,
+div[data-testid="stButton"] button:hover * {
+    color: #ffffff !important;
+}
+
+[data-testid="stDownloadButton"] button {
+        background: var(--kris-green) !important;
+        color: #ffffff !important;
+        border: 1px solid var(--kris-green-dark) !important;
+        border-radius: 14px !important;
+        padding: 0.9rem 1.1rem !important;
+        font-size: 17px !important;
+        font-weight: 850 !important;
+    }
+
+    [data-testid="stDownloadButton"] button:hover {
+        background: var(--kris-green-dark) !important;
+        color: #ffffff !important;
     }
 
     .section-heading {
-        font-size: 34px;
-        font-weight: 800;
+        font-size: 32px;
+        font-weight: 900;
         margin-top: 12px;
         margin-bottom: 18px;
+        color: var(--kris-page-text);
+    }
+
+    .context-card,
+    .result-card,
+    .highlight-card,
+    .detail-note,
+    .human-review-note,
+    .score-guide-card {
+        background: var(--kris-card-bg);
+        border: 1px solid var(--kris-card-border);
+        color: var(--kris-card-text);
     }
 
     .context-card {
         padding: 20px 22px;
         border-radius: 16px;
-        background: rgba(31, 41, 55, 0.42);
-        border: 1px solid rgba(255, 255, 255, 0.08);
         min-height: 105px;
         display: flex;
         flex-direction: column;
@@ -589,7 +963,7 @@ st.markdown(
     .context-label {
         font-size: 14px;
         font-weight: 700;
-        opacity: 0.72;
+        color: var(--kris-card-muted);
         margin-bottom: 8px;
     }
 
@@ -597,13 +971,12 @@ st.markdown(
         font-size: 20px;
         font-weight: 750;
         line-height: 1.3;
+        color: var(--kris-card-text);
     }
 
     .result-card {
         padding: 24px 22px;
         border-radius: 18px;
-        background: rgba(31, 41, 55, 0.50);
-        border: 1px solid rgba(255, 255, 255, 0.08);
         min-height: 150px;
         display: flex;
         flex-direction: column;
@@ -611,59 +984,161 @@ st.markdown(
     }
 
     .result-card.primary {
-        background: linear-gradient(135deg, rgba(30, 58, 138, 0.75), rgba(15, 23, 42, 0.85));
-        border: 1px solid rgba(96, 165, 250, 0.35);
+        background: #25489f;
+        border: 1px solid #6687e8;
+        color: #ffffff;
     }
 
     .result-label {
         font-size: 15px;
         font-weight: 700;
-        opacity: 0.82;
+        color: var(--kris-card-muted);
         margin-bottom: 10px;
+    }
+
+    .result-card.primary .result-label,
+    .result-card.primary .result-note {
+        color: #dbeafe;
     }
 
     .result-value {
         font-size: 42px;
-        font-weight: 800;
+        font-weight: 900;
         line-height: 1.1;
         margin-bottom: 10px;
+        color: var(--kris-card-text);
+    }
+
+    .result-card.primary .result-value {
+        color: #ffffff;
     }
 
     .result-note {
         font-size: 14px;
-        opacity: 0.70;
+        color: var(--kris-card-muted);
         line-height: 1.4;
     }
 
     .human-review-note {
         padding: 14px 18px;
         border-radius: 12px;
-        background: rgba(30, 58, 138, 0.22);
-        border: 1px solid rgba(96, 165, 250, 0.35);
-        color: #bfdbfe;
         font-size: 15px;
         line-height: 1.45;
         margin-top: 8px;
         margin-bottom: 18px;
     }
 
+    .detail-note {
+        padding: 14px 18px;
+        border-radius: 12px;
+        color: var(--kris-card-muted);
+        font-size: 15px;
+        line-height: 1.45;
+        margin-top: 4px;
+        margin-bottom: 18px;
+    }
+
+    .highlight-card {
+        padding: 22px 24px;
+        border-radius: 18px;
+        min-height: 210px;
+        margin-bottom: 18px;
+    }
+
+    .highlight-title {
+        font-size: 20px;
+        font-weight: 900;
+        margin-bottom: 13px;
+        color: var(--kris-card-text);
+    }
+
+    .highlight-card ol {
+        margin: 0;
+        padding-left: 22px;
+    }
+
+    .highlight-card li {
+        margin-bottom: 12px;
+        line-height: 1.35;
+        color: var(--kris-card-text);
+    }
+
+    .highlight-category {
+        display: block;
+        font-size: 16px;
+        font-weight: 750;
+        color: var(--kris-card-text);
+    }
+
+    .highlight-score {
+        display: block;
+        margin-top: 3px;
+        font-size: 13px;
+        color: var(--kris-card-muted);
+    }
+
+    .score-guide-card {
+        padding: 18px 20px;
+        border-radius: 16px;
+        margin-top: 10px;
+    }
+
+    .score-guide-card table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .score-guide-card th,
+    .score-guide-card td {
+        padding: 11px 10px;
+        border-bottom: 1px solid var(--kris-card-border);
+        text-align: left;
+    }
+
+    .score-guide-card th {
+        color: var(--kris-card-text);
+        font-weight: 850;
+    }
+
+    .score-guide-card td {
+        color: var(--kris-card-muted);
+    }
+
     @media (max-width: 768px) {
         .block-container {
-            padding-top: 1.5rem;
+            padding-top: 1.2rem;
         }
 
         .logo-banner {
-            width: 92vw;
+            width: 88vw;
             border-radius: 12px;
         }
 
-        .app-description {
+        .hero-subtitle {
+            font-size: 25px;
+        }
+
+        .hero-description {
             font-size: 16px;
-            line-height: 1.55;
+            line-height: 1.5;
+        }
+
+        .step-card {
+            margin-top: 14px;
+            min-height: auto;
+            padding: 20px 20px;
+        }
+
+        .step-title {
+            font-size: 20px;
+        }
+
+        .upload-heading {
+            font-size: 24px;
         }
 
         .section-heading {
-            font-size: 28px;
+            font-size: 27px;
         }
 
         .context-card {
@@ -700,25 +1175,51 @@ if os.path.exists(logo_path):
     logo_base64 = get_base64_image(logo_path)
 
     st.markdown(
-        f"""
-        <div class="logo-wrapper">
-            <img class="logo-banner" src="data:image/png;base64,{logo_base64}">
-        </div>
-        """,
+        f'<div class="logo-wrapper">'
+        f'<img class="logo-banner" src="data:image/png;base64,{logo_base64}">'
+        f'</div>',
         unsafe_allow_html=True
     )
 else:
     st.title("KRIS-DQ.ai")
     st.warning("new_logo.png not found. Please place new_logo.png in the same folder as app.py.")
 
-st.markdown(
-    """
-    <div class="app-description">
-    KRIS-DQ.ai evaluates annual report disclosures using the published KRIS-DQ Index framework, transforming unstructured narratives into structured, comparable risk disclosure scores. Built on the KRIS-DQ framework developed through academic research, it generates category-level evidence, concise summaries, and an overall disclosure quality score to support research, governance, and decision-making.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+hero_col, research_col = st.columns([1.65, 0.75])
+
+with hero_col:
+    st.markdown(
+        '<div class="hero-main">'
+        '<div class="hero-subtitle">AI Risk Disclosure Analyzer</div>'
+        '<div class="hero-description">'
+        'Upload an annual report or selected risk-related sections to generate KRIS-DQ scores, evidence summaries, and disclosure insights.'
+        '</div>'
+        '<div class="hero-note">'
+        'Built on the published KRIS-DQ framework for structured risk disclosure assessment.'
+        '</div>'
+        '<div class="badge-row">'
+        '<div class="badge">Research-Based Framework</div>'
+        '<div class="badge">18 Risk Categories</div>'
+        '<div class="badge">AI-Assisted Evidence Review</div>'
+        '<div class="badge">Excel Output</div>'
+        '</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+with research_col:
+    st.markdown(
+        f'<div class="research-card">'
+        f'<div class="research-label">Research Foundation</div>'
+        f'<div class="research-title">Published KRIS-DQ Framework</div>'
+        f'<div class="research-text">'
+        f'Read the article behind the KRIS-DQ Index and its 18 risk disclosure categories.'
+        f'</div>'
+        f'<a class="research-button" href="{ARTICLE_URL}" target="_blank">'
+        f'Read KRIS-DQ Article'
+        f'</a>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
 if client is None:
     st.warning(
@@ -726,84 +1227,166 @@ if client is None:
         "or add it to Streamlit secrets."
     )
 
-st.info(
-    "For best results, it is highly recommended to upload selected risk-related sections "
-    "rather than a full annual report. Suitable sections include SORMIC, MD&A, "
-    "Sustainability Statement, CG Report, AC Report, RMC Report, Directors' Report, "
-    "and other risk management or governance-related sections. Full annual reports are accepted, "
-    "but they may contain substantial non-risk content such as financial statements, notes, "
-    "corporate information, repeated headers, and administrative pages, which can reduce focus "
-    "and affect scoring accuracy."
-)
+
+# ============================================================
+# HOW IT WORKS
+# ============================================================
+
+how_col1, how_col2, how_col3 = st.columns(3)
+
+with how_col1:
+    st.markdown(
+        '<div class="step-card">'
+        '<div class="step-number">STEP 1</div>'
+        '<div class="step-title">Upload report</div>'
+        '<div class="step-text">Upload an annual report or selected risk-related sections in PDF format.</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+with how_col2:
+    st.markdown(
+        '<div class="step-card">'
+        '<div class="step-number">STEP 2</div>'
+        '<div class="step-title">Detect evidence</div>'
+        '<div class="step-text">The system reviews the text using the fixed KRIS-DQ risk categories and scoring rules.</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+with how_col3:
+    st.markdown(
+        '<div class="step-card">'
+        '<div class="step-number">STEP 3</div>'
+        '<div class="step-title">Get scores</div>'
+        '<div class="step-text">Generate category-level scores, evidence summaries, disclosure insights, and Excel output.</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
 
 # ============================================================
 # FILE UPLOAD
 # ============================================================
 
-uploaded_file = st.file_uploader(
-    "Upload Annual Report or Selected Risk-Related Sections (PDF)",
-    type="pdf"
+st.markdown(
+    """
+    <div class="upload-heading">Upload Your Report</div>
+    <div class="upload-subheading">PDF only. Selected risk-related sections are recommended for better focus and accuracy.</div>
+    """,
+    unsafe_allow_html=True
 )
+
+upload_col, preview_col = st.columns([1.45, 0.75])
+
+analyze = False
+analysis_status_area = None
+
+pdf = None
+pdf_bytes = None
+file_hash = None
+
+with upload_col:
+    with st.container(border=True):
+        uploaded_file = st.file_uploader(
+            "Upload Annual Report or Selected Risk-Related Sections",
+            type="pdf",
+            label_visibility="collapsed"
+        )
+
+        with st.expander("Tips for better results"):
+            st.info(
+                "For best results, it is highly recommended to upload selected risk-related sections "
+                "rather than a full annual report. Suitable sections include SORMIC, MD&A, "
+                "Sustainability Statement, CG Report, AC Report, RMC Report, Directors' Report, "
+                "and other risk management or governance-related sections. Full annual reports are accepted, "
+                "but they may contain substantial non-risk content such as financial statements, notes, "
+                "corporate information, repeated headers, and administrative pages, which can reduce focus "
+                "and affect scoring accuracy."
+            )
+
+        if uploaded_file is not None:
+            pdf_bytes = uploaded_file.getvalue()
+            file_hash = get_file_hash(pdf_bytes)
+            pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
+
+            st.success("PDF uploaded successfully.")
+
+            info_col1, info_col2 = st.columns(2)
+
+            with info_col1:
+                st.markdown(
+                    f'<div class="file-info-card">'
+                    f'<div class="file-info-label">File Name</div>'
+                    f'<div class="file-info-value">{html.escape(uploaded_file.name)}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            with info_col2:
+                st.markdown(
+                    f'<div class="file-info-card">'
+                    f'<div class="file-info-label">Total Pages</div>'
+                    f'<div class="file-info-value">{len(pdf)}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            analyze = st.button("Generate KRIS-DQ Analysis", use_container_width=True)
+            analysis_status_area = st.empty()
+
+with preview_col:
+    if uploaded_file is not None and pdf is not None:
+        page = pdf[0]
+        pix = page.get_pixmap(matrix=fitz.Matrix(0.48, 0.48))
+        img_bytes = pix.tobytes("png")
+        img_base64 = base64.b64encode(img_bytes).decode()
+
+        st.markdown(
+            f'<div class="preview-card">'
+            f'<div class="preview-title">First Page Preview</div>'
+            f'<div class="preview-caption">For upload confirmation only.</div>'
+            f'<img class="preview-image" src="data:image/png;base64,{img_base64}">'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            '<div class="preview-card">'
+            '<div class="preview-title">First Page Preview</div>'
+            '<div class="preview-caption">Your uploaded PDF will appear here.</div>'
+            '<div class="preview-placeholder">No PDF uploaded yet.</div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
 
 # ============================================================
 # MAIN APP LOGIC
 # ============================================================
 
-if uploaded_file is not None:
-    st.success("PDF uploaded successfully.")
+if uploaded_file is not None and analyze:
+    if client is None:
+        st.error(
+            "Analysis cannot run because the OpenAI API key is missing. "
+            "Please set OPENAI_API_KEY before running the app."
+        )
+        st.stop()
 
-    pdf_bytes = uploaded_file.getvalue()
-    file_hash = get_file_hash(pdf_bytes)
+    try:
+        status_container = analysis_status_area if analysis_status_area is not None else st
 
-    pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
+        with status_container.status("Generating KRIS-DQ analysis...", expanded=True) as status:
+            st.write("Extracting PDF text...")
 
-    col_a, col_b = st.columns(2)
-
-    with col_a:
-        st.write("**File name:**", uploaded_file.name)
-
-    with col_b:
-        st.write("**Total pages:**", len(pdf))
-
-    st.markdown("---")
-
-    st.subheader("PDF Preview")
-    st.caption(
-        "First three pages are shown for confirmation. "
-        "For best accuracy, selected risk-related sections are recommended."
-    )
-
-    preview_cols = st.columns(3)
-
-    for i in range(min(3, len(pdf))):
-        page = pdf[i]
-        pix = page.get_pixmap(matrix=fitz.Matrix(0.45, 0.45))
-        img_bytes = pix.tobytes("png")
-
-        with preview_cols[i]:
-            st.image(img_bytes, caption=f"Page {i + 1}", width=300)
-
-    st.markdown("---")
-
-    analyze = st.button("Generate KRIS-DQ Analysis", use_container_width=True)
-
-    if analyze:
-        if client is None:
-            st.error(
-                "Analysis cannot run because the OpenAI API key is missing. "
-                "Please set OPENAI_API_KEY before running the app."
-            )
-            st.stop()
-
-        with st.spinner("Generating KRIS-DQ analysis..."):
             full_text = ""
 
             for i in range(len(pdf)):
                 full_text += pdf[i].get_text() + "\n\n"
 
             text_sample = full_text[:MAX_ANALYSIS_CHARS]
+
+            st.write("Preparing KRIS-DQ risk definitions...")
 
             risk_definitions_text = "\n\n".join(
                 [
@@ -988,241 +1571,305 @@ Annual report text:
 {text_sample}
 """
 
-            try:
-                if "analysis_cache" not in st.session_state:
-                    st.session_state["analysis_cache"] = {}
+            st.write("Applying KRIS-DQ scoring framework...")
 
-                cache_key = f"{PROMPT_VERSION}_{file_hash}_{MAX_ANALYSIS_CHARS}"
+            if "analysis_cache" not in st.session_state:
+                st.session_state["analysis_cache"] = {}
 
-                if cache_key in st.session_state["analysis_cache"]:
-                    data = st.session_state["analysis_cache"][cache_key]
-                    used_cached_result = True
-                else:
-                    response = run_openai_analysis(prompt, schema)
-                    data = json.loads(response.output_text)
+            cache_key = f"{PROMPT_VERSION}_{file_hash}_{MAX_ANALYSIS_CHARS}"
 
-                    st.session_state["analysis_cache"][cache_key] = data
-                    used_cached_result = False
+            if cache_key in st.session_state["analysis_cache"]:
+                data = st.session_state["analysis_cache"][cache_key]
+                used_cached_result = True
+            else:
+                response = run_openai_analysis(prompt, schema)
+                data = json.loads(response.output_text)
 
-                company_name = data.get("company_name", "Not identified").strip()
-                if not company_name:
-                    company_name = "Not identified"
+                st.session_state["analysis_cache"][cache_key] = data
+                used_cached_result = False
 
-                fixed_categories = fix_categories(data.get("categories", []))
+            st.write("Preparing dashboard and Excel output...")
 
-                total_score = sum(item["score"] for item in fixed_categories)
-                maximum_score = 72
-                normalized_score = round(total_score / maximum_score, 2)
-                percentage_score = round((total_score / maximum_score) * 100, 1)
+            company_name = data.get("company_name", "Not identified").strip()
+            if not company_name:
+                company_name = "Not identified"
 
-                st.markdown(
-                    """
-                    <div class="analysis-complete">
-                    Analysis complete. Please review the AI-assisted results below.
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+            fixed_categories = fix_categories(data.get("categories", []))
 
-                if used_cached_result:
-                    st.caption(
-                        "Consistency note: this result was reused from the same uploaded PDF during the current session."
-                    )
+            total_score = sum(item["score"] for item in fixed_categories)
+            maximum_score = 72
+            normalized_score = round(total_score / maximum_score, 2)
+            percentage_score = round((total_score / maximum_score) * 100, 1)
 
-                st.markdown(
-                    """
-                    <div class="human-review-note">
-                    KRIS-DQ.ai provides AI-assisted preliminary scoring. Final scores should be reviewed by a trained human coder, especially for academic research, regulatory use, or paid professional reports.
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+            status.update(
+                label="KRIS-DQ analysis complete.",
+                state="complete",
+                expanded=False
+            )
 
-                st.markdown(
-                    """
-                    <div class="section-heading">
-                    Analysis Context
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+        if used_cached_result:
+            st.caption(
+                "Consistency note: this result was reused from the same uploaded PDF during the current session."
+            )
 
-                context_col1, context_col2, context_col3 = st.columns(3)
+        st.markdown(
+            """
+            <div class="human-review-note">
+            KRIS-DQ.ai provides AI-assisted preliminary scoring. Results should be reviewed by a trained user before being used for academic, regulatory, or professional purposes.
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-                with context_col1:
-                    st.markdown(
-                        f"""
-                        <div class="context-card">
-                            <div class="context-label">Company Analysed</div>
-                            <div class="context-value">{html.escape(company_name)}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+        st.markdown(
+            """
+            <div class="section-heading">
+            Analysis Context
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-                with context_col2:
-                    st.markdown(
-                        f"""
-                        <div class="context-card">
-                            <div class="context-label">Uploaded File</div>
-                            <div class="context-value">{html.escape(uploaded_file.name)}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+        context_col1, context_col2, context_col3 = st.columns(3)
 
-                with context_col3:
-                    st.markdown(
-                        f"""
-                        <div class="context-card">
-                            <div class="context-label">Pages Reviewed</div>
-                            <div class="context-value">{len(pdf)}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+        with context_col1:
+            st.markdown(
+                f"""
+                <div class="context-card">
+                    <div class="context-label">Company Analysed</div>
+                    <div class="context-value">{html.escape(company_name)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-                st.markdown(
-                    """
-                    <div class="section-heading">
-                    KRIS-DQ Score Summary
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+        with context_col2:
+            st.markdown(
+                f"""
+                <div class="context-card">
+                    <div class="context-label">Uploaded File</div>
+                    <div class="context-value">{html.escape(uploaded_file.name)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-                summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
+        with context_col3:
+            st.markdown(
+                f"""
+                <div class="context-card">
+                    <div class="context-label">Pages Reviewed</div>
+                    <div class="context-value">{len(pdf)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-                with summary_col1:
-                    st.markdown(
-                        f"""
-                        <div class="result-card primary">
-                            <div class="result-label">Overall KRIS-DQ Percentage</div>
-                            <div class="result-value">{percentage_score}%</div>
-                            <div class="result-note">Normalized score: {normalized_score}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+        st.markdown(
+            """
+            <div class="section-heading">
+            KRIS-DQ Score Summary
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-                with summary_col2:
-                    st.markdown(
-                        f"""
-                        <div class="result-card">
-                            <div class="result-label">Total Score</div>
-                            <div class="result-value">{total_score}</div>
-                            <div class="result-note">Raw score out of 72</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+        summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
 
-                with summary_col3:
-                    st.markdown(
-                        f"""
-                        <div class="result-card">
-                            <div class="result-label">Maximum Score</div>
-                            <div class="result-value">{maximum_score}</div>
-                            <div class="result-note">18 categories x 4 points</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+        with summary_col1:
+            st.markdown(
+                f"""
+                <div class="result-card primary">
+                    <div class="result-label">Overall KRIS-DQ Percentage</div>
+                    <div class="result-value">{percentage_score}%</div>
+                    <div class="result-note">Normalized score: {normalized_score}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-                with summary_col4:
-                    st.markdown(
-                        f"""
-                        <div class="result-card">
-                            <div class="result-label">Categories Checked</div>
-                            <div class="result-value">18 / 18</div>
-                            <div class="result-note">Published KRIS-DQ categories reviewed</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+        with summary_col2:
+            st.markdown(
+                f"""
+                <div class="result-card">
+                    <div class="result-label">Total Score</div>
+                    <div class="result-value">{total_score}</div>
+                    <div class="result-note">Raw score out of 72</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-                st.markdown("---")
+        with summary_col3:
+            st.markdown(
+                f"""
+                <div class="result-card">
+                    <div class="result-label">Maximum Score</div>
+                    <div class="result-value">{maximum_score}</div>
+                    <div class="result-note">18 categories x 4 points</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-                st.subheader("Category-Level KRIS-DQ Results")
+        with summary_col4:
+            st.markdown(
+                f"""
+                <div class="result-card">
+                    <div class="result-label">Categories Checked</div>
+                    <div class="result-value">18 / 18</div>
+                    <div class="result-note">Published KRIS-DQ categories reviewed</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-                df = pd.DataFrame(fixed_categories)
+        st.markdown("---")
 
-                df.insert(0, "No.", range(1, len(df) + 1))
-                df["evidence_found_display"] = df["evidence_found"].apply(
-                    lambda x: "Yes" if x else "No"
-                )
-                df["score_meaning"] = df["score"].apply(score_label)
+        df = pd.DataFrame(fixed_categories)
 
-                df = df[
-                    [
-                        "No.",
-                        "risk_category",
-                        "evidence_found_display",
-                        "score",
-                        "score_meaning",
-                        "evidence_summary",
-                        "summary"
-                    ]
-                ]
+        df.insert(0, "No.", range(1, len(df) + 1))
+        df["evidence_found_display"] = df["evidence_found"].apply(
+            lambda x: "Yes" if x else "No"
+        )
+        df["score_meaning"] = df["score"].apply(score_label)
 
-                df.columns = [
-                    "No.",
-                    "Risk Category",
-                    "Evidence Found",
-                    "KRIS-DQ Score",
-                    "Score Meaning",
-                    "Evidence Summary",
-                    "Summary of Disclosure"
-                ]
+        df = df[
+            [
+                "No.",
+                "risk_category",
+                "evidence_found_display",
+                "score",
+                "score_meaning",
+                "evidence_summary",
+                "summary"
+            ]
+        ]
 
-                results_table = build_results_table(df)
+        df.columns = [
+            "No.",
+            "Risk Category",
+            "Evidence Found",
+            "KRIS-DQ Score",
+            "Score Meaning",
+            "Evidence Summary",
+            "Summary of Disclosure"
+        ]
 
-                components.html(
-                    results_table,
-                    height=900,
-                    scrolling=True
-                )
+        st.markdown(
+            """
+            <div class="section-heading">
+            Disclosure Highlights
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-                excel_file = convert_df_to_excel(
-                    df,
-                    company_name,
-                    uploaded_file.name,
-                    len(pdf),
-                    total_score,
-                    maximum_score,
-                    normalized_score,
-                    percentage_score
-                )
+        top_df = df[df["KRIS-DQ Score"] > 0].sort_values(
+            by=["KRIS-DQ Score", "Risk Category"],
+            ascending=[False, True]
+        ).head(3)
 
-                st.download_button(
-                    label="Download KRIS-DQ Results as Excel",
-                    data=excel_file,
-                    file_name="KRIS_DQ_Results.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
+        weakest_df = df.sort_values(
+            by=["KRIS-DQ Score", "Risk Category"],
+            ascending=[True, True]
+        ).head(3)
 
-                st.caption(
-                    "Validation check: 18 out of 18 published KRIS-DQ categories displayed. "
-                    "Scores are AI-assisted preliminary estimates and should be reviewed by the user."
-                )
+        highlight_col1, highlight_col2 = st.columns(2)
 
-                st.markdown("---")
+        with highlight_col1:
+            st.markdown(
+                build_highlight_card(
+                    "Top Disclosed Risk Areas",
+                    top_df.to_dict("records"),
+                    "No disclosed risk area identified."
+                ),
+                unsafe_allow_html=True
+            )
 
-                st.subheader("Scoring Interpretation")
+        with highlight_col2:
+            st.markdown(
+                build_highlight_card(
+                    "Weakest Disclosed Risk Areas",
+                    weakest_df.to_dict("records"),
+                    "No weak category identified."
+                ),
+                unsafe_allow_html=True
+            )
 
-                st.markdown(
-                    """
-                    | Score | Interpretation |
-                    |---|---|
-                    | 0 | No disclosure |
-                    | 1 | Minimal coverage, vague or generic references to risk with little detail |
-                    | 2 | Descriptive disclosure, where the impact of the risk is evident |
-                    | 3 | Explanation of mitigation strategies, plans, controls, or strategies to mitigate or eliminate the risk |
-                    | 4 | Inclusion of quantitative information, either in monetary terms or actual physical quantities |
-                    """
-                )
+        st.markdown("---")
 
-            except Exception as e:
-                st.error("Something went wrong during analysis.")
-                st.write(e)
+        st.subheader("Category-Level KRIS-DQ Results")
+
+        st.markdown(
+            """
+            <div class="detail-note">
+            A simplified summary is shown below for easier review. Download the full Excel file for evidence found, score meaning, evidence summary, detailed category results, and review notes.
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        results_table = build_results_table(df)
+
+        components.html(
+            results_table,
+            height=720,
+            scrolling=True
+        )
+
+        excel_file = convert_df_to_excel(
+            df,
+            company_name,
+            uploaded_file.name,
+            len(pdf),
+            total_score,
+            maximum_score,
+            normalized_score,
+            percentage_score
+        )
+
+        st.download_button(
+            label="Download Full KRIS-DQ Results as Excel",
+            data=excel_file,
+            file_name="KRIS_DQ_Results.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+
+        st.caption(
+            "Validation check: 18 out of 18 published KRIS-DQ categories displayed. "
+            "Scores are AI-assisted preliminary estimates and should be reviewed by the user. "
+            "Detailed evidence is available in the downloaded Excel file."
+        )
+
+        st.markdown("---")
+
+        st.subheader("Scoring Interpretation")
+
+        st.markdown(
+            """
+            <div class="score-guide-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Score</th>
+                        <th>Interpretation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>0</td><td>No disclosure</td></tr>
+                    <tr><td>1</td><td>Minimal coverage, vague or generic references to risk with little detail</td></tr>
+                    <tr><td>2</td><td>Descriptive disclosure, where the impact of the risk is evident</td></tr>
+                    <tr><td>3</td><td>Explanation of mitigation strategies, plans, controls, or strategies to mitigate or eliminate the risk</td></tr>
+                    <tr><td>4</td><td>Inclusion of quantitative information, either in monetary terms or actual physical quantities</td></tr>
+                </tbody>
+            </table>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    except Exception as e:
+        st.error("Something went wrong during analysis.")
+        st.write(e)
