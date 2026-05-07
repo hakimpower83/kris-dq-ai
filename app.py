@@ -1189,18 +1189,19 @@ hero_col, research_col = st.columns([1.65, 0.75])
 with hero_col:
     st.markdown(
         '<div class="hero-main">'
-        '<div class="hero-subtitle">AI Risk Disclosure Analyzer</div>'
+        '<div class="hero-subtitle">AI Key Risk Disclosure Quality Analyzer</div>'
         '<div class="hero-description">'
-        'Upload an annual report or selected risk-related sections to generate KRIS-DQ scores, evidence summaries, and disclosure insights.'
+        "Get instant, research-based evaluation of a company's key risk disclosures in just seconds.<br>"
+        "No more spending hours manually analyzing annual reports."
         '</div>'
-        '<div class="hero-note">'
-        'Built on the published KRIS-DQ framework for structured risk disclosure assessment.'
+                '<div class="hero-note">'
+        'Built on the published KRIS-DQ framework, the system evaluates disclosure quality across 18 key business risk categories.'
         '</div>'
         '<div class="badge-row">'
-        '<div class="badge">Research-Based Framework</div>'
-        '<div class="badge">18 Risk Categories</div>'
-        '<div class="badge">AI-Assisted Evidence Review</div>'
-        '<div class="badge">Excel Output</div>'
+        '<div class="badge">Research-Based KRIS-DQ Scoring</div>'
+        '<div class="badge">18 Key Risk Categories</div>'
+        '<div class="badge">Evidence-Based Analysis</div>'
+        '<div class="badge">Downloadable Excel Report</div>'
         '</div>'
         '</div>',
         unsafe_allow_html=True
@@ -1212,7 +1213,7 @@ with research_col:
         f'<div class="research-label">Research Foundation</div>'
         f'<div class="research-title">Published KRIS-DQ Framework</div>'
         f'<div class="research-text">'
-        f'Read the article behind the KRIS-DQ Index and its 18 risk disclosure categories.'
+        f'Read the article behind the KRIS-DQ Index and its 18 key risk categories.'
         f'</div>'
         f'<a class="research-button" href="{ARTICLE_URL}" target="_blank">'
         f'Read KRIS-DQ Article'
@@ -1239,7 +1240,7 @@ with how_col1:
         '<div class="step-card">'
         '<div class="step-number">STEP 1</div>'
         '<div class="step-title">Upload report</div>'
-        '<div class="step-text">Upload an annual report or selected risk-related sections in PDF format.</div>'
+        '<div class="step-text">UUpload a company annual report or selected risk-related sections</div>'
         '</div>',
         unsafe_allow_html=True
     )
@@ -1248,8 +1249,8 @@ with how_col2:
     st.markdown(
         '<div class="step-card">'
         '<div class="step-number">STEP 2</div>'
-        '<div class="step-title">Detect evidence</div>'
-        '<div class="step-text">The system reviews the text using the fixed KRIS-DQ risk categories and scoring rules.</div>'
+        '<div class="step-title">Identify key risks</div>'
+        '<div class="step-text">The system identifies and evaluates disclosures related to 18 key business risk categories</div>'
         '</div>',
         unsafe_allow_html=True
     )
@@ -1258,8 +1259,8 @@ with how_col3:
     st.markdown(
         '<div class="step-card">'
         '<div class="step-number">STEP 3</div>'
-        '<div class="step-title">Get scores</div>'
-        '<div class="step-text">Generate category-level scores, evidence summaries, disclosure insights, and Excel output.</div>'
+        '<div class="step-title">Get KRIS-DQ analysis</div>'
+        '<div class="step-text">Receive KRIS-DQ scores, evidence summaries, and downloadable analysis results</div>'
         '</div>',
         unsafe_allow_html=True
     )
@@ -1668,7 +1669,7 @@ Annual report text:
         st.markdown(
             """
             <div class="section-heading">
-            KRIS-DQ Score Summary
+            Key Risk Disclosure Results
             </div>
             """,
             unsafe_allow_html=True
