@@ -950,6 +950,86 @@ div[data-testid="stButton"] button:hover * {
         color: var(--kris-card-text);
     }
 
+    .score-meaning-card {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--kris-card-border);
+    margin-top: 10px;
+    margin-bottom: 26px;
+    background: var(--kris-card-bg);
+}
+
+.score-meaning-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 18px;
+    padding: 18px 22px;
+    border-bottom: 1px solid rgba(255,255,255,0.16);
+    color: #ffffff;
+}
+
+.score-meaning-row:last-child {
+    border-bottom: none;
+}
+
+.score-range {
+    font-size: 28px;
+    font-weight: 900;
+    align-self: center;
+}
+
+.score-title {
+    font-size: 20px;
+    font-weight: 900;
+    margin-bottom: 4px;
+}
+
+.score-desc {
+    font-size: 15px;
+    line-height: 1.45;
+    opacity: 0.95;
+}
+
+.meaning-red {
+    background: #991b1b;
+}
+
+.meaning-orange {
+    background: #c2410c;
+}
+
+.meaning-yellow {
+    background: #b7791f;
+}
+
+.meaning-green {
+    background: #3f7f2a;
+}
+
+.meaning-darkgreen {
+    background: #14532d;
+}
+
+@media (max-width: 768px) {
+    .score-meaning-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        padding: 16px 18px;
+    }
+
+    .score-range {
+        font-size: 24px;
+    }
+
+    .score-title {
+        font-size: 18px;
+    }
+
+    .score-desc {
+        font-size: 14px;
+    }
+}
+
     .context-card {
         padding: 20px 22px;
         border-radius: 16px;
@@ -1845,6 +1925,55 @@ Annual report text:
         )
 
         st.markdown("---")
+
+        st.subheader("KRIS-DQ Score Meaning")
+
+        st.markdown(
+            """
+            <div class="score-meaning-card">
+            <div class="score-meaning-row meaning-red">
+                <div class="score-range">0–20%</div>
+                <div>
+                    <div class="score-title">Very Weak Disclosure</div>
+                    <div class="score-desc">Minimal discussion of key risks with very limited transparency and weak risk communication.</div>
+                </div>
+            </div>
+    
+            <div class="score-meaning-row meaning-orange">
+                <div class="score-range">21–40%</div>
+                <div>
+                    <div class="score-title">Weak Disclosure</div>
+                    <div class="score-desc">Some key risks are mentioned, but disclosures remain general and lack meaningful detail.</div>
+                </div>
+            </div>
+    
+            <div class="score-meaning-row meaning-yellow">
+                <div class="score-range">41–60%</div>
+                <div>
+                    <div class="score-title">Moderate Disclosure</div>
+                    <div class="score-desc">Key risks are reasonably discussed with partial explanations and some mitigation information.</div>
+                </div>
+            </div>
+    
+            <div class="score-meaning-row meaning-green">
+                <div class="score-range">61–80%</div>
+                <div>
+                    <div class="score-title">Strong Disclosure</div>
+                    <div class="score-desc">Clear and structured disclosure of major risks, including management responses and governance practices.</div>
+                </div>
+            </div>
+    
+            <div class="score-meaning-row meaning-darkgreen">
+                <div class="score-range">81–100%</div>
+                <div>
+                    <div class="score-title">Excellent Disclosure</div>
+                    <div class="score-desc">Comprehensive and transparent risk disclosure supported by detailed explanations and measurable information.</div>
+                </div>
+            </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
         st.subheader("Scoring Interpretation")
 
