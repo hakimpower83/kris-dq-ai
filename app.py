@@ -1320,7 +1320,7 @@ with how_col1:
         '<div class="step-card">'
         '<div class="step-number">STEP 1</div>'
         '<div class="step-title">Upload report</div>'
-        '<div class="step-text">UUpload a company annual report or selected risk-related sections</div>'
+        '<div class="step-text">Upload a company annual report or selected risk-related sections</div>'
         '</div>',
         unsafe_allow_html=True
     )
